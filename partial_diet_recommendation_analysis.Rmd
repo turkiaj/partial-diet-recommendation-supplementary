@@ -1,0 +1,321 @@
+---
+title: "Personal recommendation of potassium and phosphorous intakes for end-stage renal patients"
+subtitle: "Supplementary Materials"
+author:
+- JARI TURKIA \textsuperscript{1,2}
+- URSULA SCHWAB \textsuperscript{3,4}
+- VILLE HAUTAMÄKI \textsuperscript{1,5}
+- \textsuperscript{1} School of Computing, University of Eastern Finland, 80101 Joensuu, Finland
+- \textsuperscript{2} CGI Suomi, Joensuu, Finland
+- \textsuperscript{3} School of Medicine, Institute of Public Health and Clinical Nutrition,
+- University of Eastern Finland, Kuopio, Finland
+- \textsuperscript{4} Department of Medicine, Endocrinology and Clinical Nutrition,
+- Kuopio University Hospital, Kuopio, Finland
+- \textsuperscript{5} Department of Electrical and Computer Engineering, 
+- National University of Singapore, Singapore
+
+output:
+  pdf_document:
+    latex_engine: xelatex
+    fig_caption: yes
+    includes:
+      in_header: custom_figure_captions.tex
+  html_document: default
+abstract: This notebook is a supplementary material for the article
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(kableExtra) # for HTML and Latex tables
+
+knitr::opts_chunk$set(echo = TRUE, fig.align="center")
+
+# this allows using tikz rendering for plots with "dev=tikz"
+knit_hooks$set(plot = function(x, options) {
+  if ('tikz' %in% options$dev && !options$external) {
+    hook_plot_tex(x, options)
+  } else hook_plot_md(x, options)
+})
+
+# Fix seed for random number generator for getting consistent results in kmeans etc.
+fixed_seed <- 678
+
+# Load common MEBN package
+source("mebn/v2/MEBNv2.r")
+
+# Online version (TRUE) uses color images while (FALSE) renders exact figures for the article 
+RenderArticleFigures <- FALSE
+```
+
+This notebook repeats fully the analysis of personal diet recommendations described in the main article. The notebook starts from the collected raw data, prepares it for analysis and estimates personal reaction models with these data. The personal reaction models are combined with the estimation of the current personal diets for constructing personal graphical models. These personal models generate the levels of blood concentrations when a diet is given, they are used in simulating recommended personal diets for reaching predefined normal concentrations. Finally, these personal diet recommendations are compared for showing the divergence among the studied patients.
+
+The notebook execution generates all the figures and tables that are included in the article, and produces also the referenced supplementary figures. The article is accompanied with a PDF rendetion of the notebook that shows all the supplementary figures and important parts of the program code so that the analysis can be followed in detail. The executable RMarkdown notebook with data can be found in a public Github repository of the corresponding author.
+
+# Exploration of nutrition data
+
+The dataset with food records and laboratory measurements is prepared. Nutrient intakes of fats and protein are reported in both grams and percentages of energy intake.
+
+```{r data_loading, echo=FALSE, message=FALSE}
+library(lubridate)
+library(dplyr)
+library(tidyr)
+
+# Read the data description
+datadesc_fat_epros <- read.csv(file="data/DIALYSIS_data_description_fat_epros.csv", header = TRUE, sep = ";")
+
+# Read the actual data matching the description
+dialysis <- read.csv(file="data/DIALYSIS.csv", sep=";", dec=",")
+
+# Define factors
+dialysis$potilas <- factor(dialysis$potilas)
+dialysis$nesterajoitus <- factor(dialysis$nesterajoitus)
+dialysis$verenpainelaakitys <- factor(dialysis$verenpainelaakitys)
+dialysis$verenrasvojen_laakitys <- factor(dialysis$verenrasvojenlaakitys)
+dialysis$mielialalaakitys <- factor(dialysis$mielialalaakitys)
+dialysis$fosforinsitoja <- factor(dialysis$fosforinsitoja)
+dialysis$kaliuminsitoja <- factor(dialysis$kaliuminsitoja)
+dialysis$anemian_hoito <- factor(dialysis$anemianhoito)
+dialysis$diabeteslaakitys <- factor(dialysis$diabeteslaakitys)
+dialysis$antibiootti <- factor(dialysis$antibiootti)
+dialysis$marevan <- factor(dialysis$marevan)
+dialysis$nesteenpoisto <- factor(dialysis$nesteenpoisto)
+dialysis$ummetuslaake <- factor(dialysis$ummetuslaake)
+dialysis$verenohennus <- factor(dialysis$verenohennus)
+dialysis$akt_dvit <- factor(dialysis$aktdvit)
+dialysis$renavit <- factor(dialysis$renavit)
+dialysis$cad <- factor(dialysis$cad)
+
+# Calculate missing E% for fats 
+# https://fineli.fi/fineli/fi/ravintotekijat/2331
+
+dialysis$mufaepros <- dialysis$mufa * 9 / dialysis$energiakcal * 100 # Rasvan energiakerroin on 37 kJ/g (9 kcal/g)
+dialysis$pufaepros <- dialysis$pufa * 9 / dialysis$energiakcal * 100 # Rasvan energiakerroin on 37 kJ/g (9 kcal/g)
+#dialysis$safaepros2 <- dialysis$safa * 9 / dialysis$energiakcal * 100 # Rasvan energiakerroin on 37 kJ/g (9 kcal/g)
+
+# Add these new E% features as predictors
+mufa_e <- datadesc_fat_epros[datadesc_fat_epros$Name=="mufa",]
+mufa_e$Name <- "mufaepros"
+mufa_e$Unit <- "E%"
+mufa_e$Description <- "Monounsaturated Fatty Acids, E%"
+mufa_e$Descriptionfin <- "Mufa E%"
+datadesc_fat_epros <- rbind(datadesc_fat_epros, mufa_e)
+
+pufa_e <- datadesc_fat_epros[datadesc_fat_epros$Name=="pufa",]
+pufa_e$Name <- "pufaepros"
+pufa_e$Unit <- "E%"
+pufa_e$Description <- "Polyunsaturated Fatty Acids, E%"
+pufa_e$Descriptionfin <- "Pufa E%"
+datadesc_fat_epros <- rbind(datadesc_fat_epros, pufa_e)
+
+# Remove g/d features from predictors
+datadesc_fat_epros[datadesc_fat_epros$Name=="mufa",]$Order <- 0
+datadesc_fat_epros[datadesc_fat_epros$Name=="pufa",]$Order <- 0
+
+# gender: female = 1, male = 0
+dialysis$sukupuoli <- factor(ifelse(dialysis$sukupuoli == "nainen", 1, 0))
+
+# Days between laboratory test and food record interview
+dialysis$responsedays <- difftime(as.Date(dialysis$labraaika, '%d.%m.%Y'), as.Date(dialysis$ravhaastaika, '%d.%m.%Y'), units = c("days"))
+
+responsedays_desc <- datadesc_fat_epros[datadesc_fat_epros$Name=="ika",]
+responsedays_desc$Order <- 0 # OMITTED !!
+responsedays_desc$Distribution <- "Integer"  # Filter this out from normalization etc.
+responsedays_desc$Name <- "responsedays"
+responsedays_desc$Unit <- "days"
+responsedays_desc$Description <- "responsetime"
+responsedays_desc$Descriptionfin <- "vasteaika"
+datadesc_fat_epros <- rbind(datadesc_fat_epros, responsedays_desc)
+
+# important: dataset is ordered by successive patients and observations so that estimation works correctly
+dialysis <- dialysis[order(dialysis$potilas, dialysis$havainto),]
+
+# remove patients with one observation only
+
+# dialysis
+patients_with_two_obs <- dialysis %>% 
+  group_by(potilas) %>% 
+  summarise(havainto_sum = sum(havainto)) %>%
+  filter(havainto_sum == 3) %>%
+  select(potilas) %>%
+  unlist() %>% as.vector()
+
+dialysis <- dialysis[dialysis$potilas %in% patients_with_two_obs,]
+
+# - reset patient levels
+dialysis$potilas <- factor(dialysis$potilas)
+
+# Define how to iterate through the graph
+# - same targets
+assumedtargets <- datadesc_fat_epros[datadesc_fat_epros$Order==200,]
+```
+
+We use energy-% of fats in our analysis (assumedpredictors_fat_epros)
+
+```{r two_sets_of_predictors, echo=FALSE, message=FALSE}
+# - different sets of predictors
+
+## FAT EPROS
+assumedpredictors_fat_epros <- datadesc_fat_epros[datadesc_fat_epros$Order==100,]
+
+# Ordering for table
+assumedpredictors_fat_epros <- assumedpredictors_fat_epros[order(assumedpredictors_fat_epros$Unit, assumedpredictors_fat_epros$Description),]
+
+gaussian_preds <- as.vector(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian" | assumedpredictors_fat_epros$Distribution == "LogNormal",]$Name)
+show_decimals <- as.vector(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian" | assumedpredictors_fat_epros$Distribution == "LogNormal",]$Decimals)
+
+pred_table <- as.data.frame(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian" | assumedpredictors_fat_epros$Distribution == "LogNormal",]$Description, row.names = NULL)
+
+range_mat <- paste0(round(apply(t(dialysis[gaussian_preds]), 1, function(x) mean(x)),show_decimals), " (",round(apply(t(dialysis[gaussian_preds]), 1, function(x) min(x)),show_decimals)," - ",round(apply(t(dialysis[gaussian_preds]), 1, function(x) max(x)),show_decimals),") ", as.vector(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian",]$Unit))
+
+prior_range <- paste0(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian",]$Lowerbound, " - ", assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian",]$Upperbound, " ", assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Gaussian",]$Unit)
+
+pred_table_fat_epros <- cbind(pred_table, range_mat)
+colnames(pred_table_fat_epros) <- c("Nutrient", "Sample avg. (min-max)")
+
+```
+
+Following nutrients and medications are considered as predictors in our model. This is referred as Table 1 in the main article.
+
+```{r table1, echo=FALSE, message=FALSE}
+library(kableExtra)
+
+# Latex notation from tables/nutrient_table.tex is used in the article
+
+phos_id <- which(pred_table_fat_epros$Nutrient == "Phosphorous")
+pot_id <- which(pred_table_fat_epros$Nutrient == "Potassium")
+
+table1 <- kable(pred_table_fat_epros, booktabs = T, row.names = NA, format = "latex", caption = "Nutrients") %>%
+  kable_styling(full_width = TRUE) %>%
+  row_spec(0,bold=TRUE) %>% 
+  row_spec(phos_id,bold=TRUE) %>%
+  row_spec(pot_id,bold=TRUE)
+
+table1 %>% save_kable(file = "tables/nutrient_table.pdf", keep_tex = TRUE)
+```
+and also following personal details and medication are considered as predictors
+
+```{r table2, echo=FALSE, message=FALSE}
+library(kableExtra)
+
+medication_preds <- as.vector(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Bernoulli",]$Name)
+medication_table <- as.data.frame(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Bernoulli",]$Description, row.names = NULL)
+
+# Add dialysis treatments to table 
+medication_preds <- c(medication_preds, "KHD", "OHD", "PD")
+medication_table <- rbind(medication_table, "Home hemodialysis", "Hospital hemodialysis", "Peritoneal dialysis")
+
+# Hot-encode the treatments in data (PD/KHD/OHD)
+dialysis$PD <- 0  
+dialysis$KHD <- 0  
+dialysis$OHD <- 0  
+dialysis[dialysis$hoitomuoto == "PD",]$PD <- 1
+dialysis[dialysis$hoitomuoto == "KHD",]$KHD <- 1
+dialysis[dialysis$hoitomuoto == "OHD",]$OHD <- 1
+
+medication_table <- cbind(medication_table, paste0(round(colSums(dialysis[medication_preds] == 1) / nrow(dialysis[medication_preds]) * 100, 0), "%"))
+colnames(medication_table) <- c("Personal detail", "Percentage of patients")
+
+# fix gender description in table
+gender_row <- medication_table[medication_table[1]=="Gender",]
+gender_row[2] <- paste0(gender_row[2], " female")
+
+medication_table[medication_table[1]=="Gender",] <- gender_row
+
+# Latex notation from tables/personinfo_table.tex is used in the article
+
+kable(medication_table, booktabs = T, row.names = NA, format = "latex", caption = "Medication") %>%
+  kable_styling(full_width = TRUE) %>%
+  row_spec(0,bold=TRUE)
+
+kable(medication_table, booktabs = T, row.names = NA, format = "latex", caption = "Medication") %>%
+  kable_styling(full_width = TRUE) %>%
+  row_spec(0,bold=TRUE) %>% 
+  save_kable(file = "tables/personinfo_table.pdf", keep_tex = TRUE)
+```
+
+
+
+There seems to be personal differences in both levels and directions on how concentrations have changed between the two observations. Let us compare how the amount of dietary potassium and phosphorus in diet correspond to these concentrations
+
+```{r scatterplot, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.height=6, fig.width=6, fig.cap="Figure shows the concentrations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) progress between two observations of the studied patients. Annotated gray regions in figures show the recommended concentration levels, P-K 3.4 - 4.7 mmol/l, fP-Pi < 1.8 mmol/l and P-Alb 34 - 48 g/l. Vertical black lines denote the commonly recommended maximum intakes of these nutrients. The goal is to find personal intake levels that keep the concentrations in recommended levels, if possible.", message=FALSE}
+library(ggplot2)
+library(gridExtra)
+library(grid)
+
+pk_k_plot <- ggplot() +
+  geom_point(data=dialysis, aes(y = pk, x=kalium, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = pk, x=kalium, color=potilas), size=0.4, show.legend = FALSE) +
+  #geom_text(data=dialysis, aes(y = pk, x=kalium, label=potilas)) +
+  geom_vline(xintercept = 2500, linetype="solid", color = "black", size=0.5) +
+  labs(x = "Potassium (mg/d)", y = "P-K (mmol/l)") + 
+  scale_x_continuous() +
+  scale_y_continuous(breaks=c(3,3.4,4,4.7,5,6)) +
+  annotate("rect",ymin=-Inf, ymax=c(3.4), xmin=-Inf, xmax=Inf, alpha = .2) + 
+  annotate("rect",ymin=c(4.7), ymax=Inf, xmin=-Inf, xmax=Inf, alpha = .2) + 
+  theme_bw() +
+  theme(axis.title.x = element_blank(), axis.text = element_text(size=6), axis.title = element_text(size=8)) 
+
+pk_p_plot <- ggplot() +
+  geom_point(data=dialysis, aes(y = pk, x=fosfori, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = pk, x=fosfori, color=potilas), size=0.4, show.legend = FALSE) +
+  #geom_text(data=dialysis, aes(y = pk, x=fosfori, label=potilas)) +
+  geom_vline(xintercept = 1000, linetype="solid", color = "black", size=0.5) +
+  labs(x = "Phosphorus (mg/d)", y = "P-K (mmol/l)") + 
+  scale_x_continuous() +
+  scale_y_continuous(breaks=c(3,3.4,4,4.7,5,6)) +
+  annotate("rect",ymin=-Inf, ymax=c(3.4), xmin=-Inf, xmax=Inf, alpha = .2) + 
+  annotate("rect",ymin=c(4.7), ymax=Inf, xmin=-Inf, xmax=Inf, alpha = .2) + 
+  theme_bw() +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text = element_text(size=6), axis.title = element_text(size=8)) 
+
+fppi_k_plot <- ggplot() +
+  geom_point(data=dialysis, aes(y = fppi, x=kalium, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = fppi, x=kalium, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_vline(xintercept = 2500, linetype="solid", color = "black", size=0.5) +
+  scale_x_continuous() +
+  scale_y_continuous(breaks=c(1,1.8,2,3)) +
+  annotate("rect",ymax=Inf, ymin=c(1.8), xmin=-Inf, xmax=Inf, alpha = .2) + 
+  labs(x = "Potassium (mg/d)", y = "fP-Pi (mmol/l)") + 
+  theme_bw() +
+  theme(axis.title.x = element_blank(), axis.text = element_text(size=6), axis.title = element_text(size=8))
+
+fppi_p_plot <- ggplot() +
+  geom_point(data=dialysis, aes(y = fppi, x=fosfori, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = fppi, x=fosfori, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_vline(xintercept = 1000, linetype="solid", color = "black", size=0.5) +
+  scale_x_continuous() +
+  scale_y_continuous(breaks=c(1,1.8,2,3)) +
+  annotate("rect",ymax=Inf, ymin=c(1.8), xmin=-Inf, xmax=Inf, alpha = .2) + 
+  labs(x = "Phosphorus (mg/d)", y = "fP-Pi (mmol/l)") + theme(axis.title.x = element_blank()) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text = element_text(size=6), axis.title = element_text(size=8)) 
+
+palb_k <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=kalium, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=kalium, color=potilas), size=0.4, show.legend = FALSE) +
+  #geom_text(data=dialysis, aes(y = pk, x=kalium, label=potilas)) +
+  geom_vline(xintercept = 2500, linetype="solid", color = "black", size=0.5) +
+  labs(x = "Potassium (mg/d)", y = "P-Alb (g/l)") +
+  scale_x_continuous() +
+  scale_y_continuous(breaks=c(34,48)) +
+  annotate("rect",ymin=-Inf, ymax=c(34), xmin=-Inf, xmax=Inf, alpha = .2) + 
+  annotate("rect",ymin=c(48), ymax=Inf, xmin=-Inf, xmax=Inf, alpha = .2) + 
+  theme_bw() +
+  theme(axis.text = element_text(size=6), axis.title = element_text(size=8)) 
+
+palb_p <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=fosfori, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=fosfori, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_vline(xintercept = 1000, linetype="solid", color = "black", size=0.5) +
+  scale_x_continuous() +
+  scale_y_continuous(breaks=c(34,48)) +
+  annotate("rect",ymin=-Inf, ymax=c(34), xmin=-Inf, xmax=Inf, alpha = .2) + 
+  annotate("rect",ymin=c(48), ymax=Inf, xmin=-Inf, xmax=Inf, alpha = .2) + 
+  labs(x = "Phosphorus (mg/d)", y = "P-Alb (g/l)") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(), axis.text = element_text(size=6), axis.title = element_text(size=8)) 
+
+p <- grid.arrange(pk_k_plot, pk_p_plot, fppi_k_plot, fppi_p_plot, palb_k, palb_p, nrow = 4, ncol=2, padding=0)
+p
+ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
+```
