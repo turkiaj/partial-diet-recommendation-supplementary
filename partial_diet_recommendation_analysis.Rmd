@@ -21,6 +21,7 @@ output:
     includes:
       in_header: custom_figure_captions.tex
   html_document: default
+header-includes: \usepackage{float}  
 abstract: This notebook is a supplementary material for the article
 ---
 
@@ -28,7 +29,7 @@ abstract: This notebook is a supplementary material for the article
 library(knitr)
 library(kableExtra) # for HTML and Latex tables
 
-knitr::opts_chunk$set(echo = TRUE, fig.align="center")
+knitr::opts_chunk$set(echo = TRUE, fig.align="center", fig.pos = 'H')
 
 # this allows using tikz rendering for plots with "dev=tikz"
 knit_hooks$set(plot = function(x, options) {
@@ -51,9 +52,7 @@ This notebook repeats fully the analysis of personal diet recommendations descri
 
 The notebook execution generates all the figures and tables that are included in the article, and produces also the referenced supplementary figures. The article is accompanied with a PDF rendetion of the notebook that shows all the supplementary figures and important parts of the program code so that the analysis can be followed in detail. The executable RMarkdown notebook with data can be found in a public Github repository of the corresponding author.
 
-# Exploration of nutrition data
-
-The dataset with food records and laboratory measurements is prepared. Nutrient intakes of fats and protein are reported in both grams and percentages of energy intake.
+# Dialysis patient data
 
 ```{r data_loading, echo=FALSE, message=FALSE, warning=FALSE}
 library(lubridate)
@@ -149,8 +148,6 @@ dialysis$potilas <- factor(dialysis$potilas)
 assumedtargets <- datadesc_fat_epros[datadesc_fat_epros$Order==200,]
 ```
 
-We use energy-% of fats in our analysis (assumedpredictors_fat_epros)
-
 ```{r two_sets_of_predictors, echo=FALSE, message=FALSE}
 # - different sets of predictors
 
@@ -174,7 +171,7 @@ colnames(pred_table_fat_epros) <- c("Nutrient", "Sample avg. (min-max)")
 
 ```
 
-Following nutrients and medications are considered as predictors in our model. This is referred as Table 1 in the main article.
+The analyzed dataset consists of food records and laboratory measurements from end-stage renal patients in dialysis. Following nutrients are possible considered as predictors of concentrations. Note that we use energy-% of fats and protein as unit in our analysis. This is referred as Table 1 in the main article.
 
 ```{r table1, echo=FALSE, message=FALSE, warning=FALSE}
 library(kableExtra)
@@ -184,15 +181,18 @@ library(kableExtra)
 phos_id <- which(pred_table_fat_epros$Nutrient == "Phosphorous")
 pot_id <- which(pred_table_fat_epros$Nutrient == "Potassium")
 
-table1 <- kable(pred_table_fat_epros, booktabs = T, row.names = NA, format = "latex", caption = "Nutrients") %>%
+table1 <- kable(pred_table_fat_epros, booktabs = T, row.names = NA, format = "latex", caption = "Nutrient predictors of the model.") %>%
   kable_styling(full_width = TRUE) %>%
+  kable_styling(latex_options = "HOLD_position") %>%
   row_spec(0,bold=TRUE) %>% 
   row_spec(phos_id,bold=TRUE) %>%
   row_spec(pot_id,bold=TRUE)
 
+table1
+
 table1 %>% save_kable(file = "tables/nutrient_table.pdf", keep_tex = TRUE)
 ```
-and also following personal details and medication are considered as predictors
+and also following personal details and medication are considered as predictors. This is referenced as Table 2 in the article.
 
 ```{r table2, echo=FALSE, message=FALSE}
 library(kableExtra)
@@ -223,18 +223,18 @@ medication_table[medication_table[1]=="Gender",] <- gender_row
 
 # Latex notation from tables/personinfo_table.tex is used in the article
 
-table2 <- kable(medication_table, booktabs = T, row.names = NA, format = "latex", caption = "Medication") %>%
+table2 <- kable(medication_table, booktabs = T, row.names = NA, format = "latex", caption = "Personal details that are used as predictors.") %>%
   kable_styling(full_width = TRUE) %>%
+  kable_styling(latex_options = "HOLD_position") %>%
   row_spec(0,bold=TRUE)
+
+table2
 
 table2 %>% save_kable(file = "tables/personinfo_table.pdf", keep_tex = TRUE)
 ```
+Let us explore then how the intake of dietary potassium and phosphorus corresponds in data to plasma concentrations of potassium, phosphate and albumin
 
-
-
-There seems to be personal differences in both levels and directions on how concentrations have changed between the two observations. Let us compare how the amount of dietary potassium and phosphorus in diet correspond to these concentrations
-
-```{r scatterplot, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.height=6, fig.width=6, fig.cap="Figure shows the concentrations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) progress between two observations of the studied patients. Annotated gray regions in figures show the recommended concentration levels, P-K 3.4 - 4.7 mmol/l, fP-Pi < 1.8 mmol/l and P-Alb 34 - 48 g/l. Vertical black lines denote the commonly recommended maximum intakes of these nutrients. The goal is to find personal intake levels that keep the concentrations in recommended levels, if possible.", message=FALSE}
+```{r scatterplot, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.height=6, fig.width=6, fig.cap="Figure shows the progress between two observations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) concentrations of the studied patients. White regions in the panels show the recommended concentration levels, P-K 3.4 - 4.7 mmol/l, fP-Pi < 1.8 mmol/l and P-Alb 34 - 48 g/l. Vertical black lines denote the commonly recommended maximum intakes of these nutrients. The goal is to find personal intake levels that keep the concentrations in recommended levels, if possible. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org).", message=FALSE}
 library(ggplot2)
 library(gridExtra)
 library(grid)
@@ -313,25 +313,28 @@ palb_p <- ggplot() +
   theme(axis.title.y = element_blank(), axis.text = element_text(size=6), axis.title = element_text(size=8)) 
 
 p <- grid.arrange(pk_k_plot, pk_p_plot, fppi_k_plot, fppi_p_plot, palb_k, palb_p, nrow = 4, ncol=2, padding=0)
-ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
+#ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
 ```
+Aim of this analysis is to find such personal levels of potassium and phosphorous intakes that keep all these concentrations in their normal levels marked with white regions, if possible. 
 
-#Development of nutrition reaction model
+# Development of nutrition reaction model
 
-For comparison, we estimate model systems with and without cross-model covariance. With cross-model covariance estimated, the model corresponds to seemingly unrelated model system, and without the model is Bayesian network with separated local distributions. This simpler model is estimated first with only potassium and phosphorous concentrations as responses.
+In this work we construct personal generative models for concentrations that allow conditioning personal diet recommendations. Essential part of these models is the personal reactions to nutrients and other predictors. Simultaneous reactions on all considered concentrations are modeled as multivariate model that has all the concentrations are response variables.
 
-```{r pk_fppi_targets}
-pk_fppi_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi'),]
-```
+For comparison, we estimate multivariate systems with and without cross-model covariance. With cross-model covariance estimated, the model corresponds to seemingly unrelated model system, and without the model is Bayesian network with separated local distributions. This simpler model is estimated first with only potassium and phosphorous concentrations as responses.
 
-```{r model_separate_univariate, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+```{r model_separate_univariate_preparation, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 library(rstan)
 source("mebn/v2/MEBNv2.r")
 
 rstan_options (auto_write=TRUE)
 options (mc.cores=parallel::detectCores ()) 
+```
 
+```{r model_separate_univariate, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 initial_graph <- mebn.fully_connected_bipartite_graph(datadesc_fat_epros)
+
+pk_fppi_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi'),]
 
 dialdiet_gamma <- mebn.bipartite_model(reaction_graph = initial_graph, 
                                    inputdata = dialysis,
@@ -349,12 +352,6 @@ write.graph(dialdiet_gamma, "graphs/dialysis_gamma_separate.graphml", "graphml")
 In Bayesian network both responses were estimated separately. Next, we estimate a multivariate model where both distribution are estimated during single sampling. It does not factorize into separate distributions, but allows using more data.
 
 ```{r graph_with_gamma_qr_mv_epros, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
-library(rstan)
-source("mebn/v2/MEBNv2.r")
-
-rstan_options (auto_write=TRUE)
-options (mc.cores=parallel::detectCores ())
-
 initial_graph <- mebn.fully_connected_bipartite_graph(datadesc_fat_epros)
 
 pk_fppi_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi'),]
@@ -365,28 +362,21 @@ dialdiet_gamma_mv2_epros <- mebn.bipartite_multivariate(reaction_graph = initial
                                    assumed_targets = pk_fppi_targets, 
                                    group_column = "potilas",
                                    local_estimation = mebn.multivariate_sampling,
-                                   local_model_cache = "models/BLMM_gamma_qr_multivariate2/fat_epros", 
+                                   local_model_cache = 
+                                     "models/BLMM_gamma_qr_multivariate2/fat_epros", 
                                    stan_model_file = "mebn/v2/BLMM_gamma_qr_mv.stan",
                                    normalize_values = TRUE)
 
-write.graph(dialdiet_gamma_mv2_epros, "graphs/dialysis_gamma_multivariate2_epros.graphml", "graphml")
-
+write.graph(dialdiet_gamma_mv2_epros, 
+            "graphs/dialysis_gamma_multivariate2_epros.graphml", "graphml")
 ```
+Next we like to add plasma albumin concentration as a third constraint in the model, but unfortunately 8 of 37 patients have missing albumin measurements. From such a small dataset we don't want to remove any patients and so we predict the missing albumin levels and impute them to dataset. 
 
-For getting stricter recommendations, we add plasma albumin concentration as a third constraint. 
-
-First, estimate the model without missing values in P-Alb. The rows with missing values are held out from the density estimation, but patients are kept in the model for estimating their parameters.
-
-```{r pk_fppi_palb_targets}
-pk_fppi_palb_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
-```
+For prediction, estimate the model without missing values in P-Alb. The rows with missing values are held out from the density estimation, but patients are kept in the model for estimating their parameters.
 
 ```{r graph_with_gamma_qr_mv3_epros, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
-library(rstan)
-source("mebn/v2/MEBNv2.r")
-
-rstan_options (auto_write=TRUE)
-options (mc.cores=parallel::detectCores ())
+pk_fppi_palb_targets <- 
+  datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
 
 # 0/1-index for palb = NA
 holdout_index <- as.vector(as.numeric(is.na(dialysis$palb)))
@@ -396,19 +386,21 @@ if (anyNA(dialysis$palb)) dialysis[is.na(dialysis$palb),]$palb <- -1
 
 initial_graph <- mebn.fully_connected_bipartite_graph(datadesc_fat_epros)
 
-dialdiet_gamma_mv3_missing_palb <- mebn.bipartite_multivariate(reaction_graph = initial_graph, 
+dialdiet_gamma_mv3_missing_palb <- mebn.bipartite_multivariate(
+                                   reaction_graph = initial_graph, 
                                    inputdata = dialysis,
                                    targetdata = holdout_index,
                                    predictor_columns = assumedpredictors_fat_epros, 
                                    assumed_targets = pk_fppi_palb_targets, 
                                    group_column = "potilas",
                                    local_estimation = mebn.multivariate_sampling,
-                                   local_model_cache = "models/BLMM_gamma_qr_multivariate3/fat_epros_missing_palb", 
+                                   local_model_cache = 
+                                     "models/BLMM_gamma_qr_multivariate3/fat_epros_missing_palb", 
                                    stan_model_file = "mebn/v2/BLMM_gamma_qr_mv_cv.stan",
                                    normalize_values = TRUE)
 
 ```
-#Personal data imputation models
+# Personal data imputation models
 
 Now we can create personal models for patients that have missing plasma albumin measurements. These models are then used for making personal predictions for replacing missing values.
 
@@ -425,13 +417,15 @@ for (person_id in 1:length(patients_with_missing_palb)) {
   
   # - previously estimated graphical model with all the persons
   local_distributions <- pk_fppi_palb_targets
-  local_distributions$modelcache <- "models/BLMM_gamma_qr_multivariate3/fat_epros_missing_palb"
+  local_distributions$modelcache <- 
+    "models/BLMM_gamma_qr_multivariate3/fat_epros_missing_palb"
   
   # - get personal data, normalized and original
   
-  # - statistics for vertex levels are calculated from normalized data (as it was in the likelihood estimation)
+  # - statistics for vertex levels are calculated from normalized data
   predictors <- nrow(assumedpredictors_fat_epros)
-  normalized_input <- sapply(1:predictors, mebn.scale_gaussians, data = dialysis, datadesc = assumedpredictors_fat_epros)
+  normalized_input <- sapply(1:predictors, mebn.scale_gaussians, 
+                             data = dialysis, datadesc = assumedpredictors_fat_epros)
   normalized_input_df <- as.data.frame(normalized_input)
   
   # - pick rows for the selected person
@@ -441,7 +435,8 @@ for (person_id in 1:length(patients_with_missing_palb)) {
   personal_data <- as.matrix(subset(personal_data_df, select = -c(`dialysis$potilas`)))
   
   # - store also these original stats in graph
-  personal_data_org <- subset(dialysis[dialysis$potilas == subject_code,], select = as.vector(assumedpredictors_fat_epros$Name))
+  personal_data_org <- subset(dialysis[dialysis$potilas == subject_code,], 
+                              select = as.vector(assumedpredictors_fat_epros$Name))
   
   # function parameters
   
@@ -451,7 +446,10 @@ for (person_id in 1:length(patients_with_missing_palb)) {
   
   # - This function extracts the personal model from a single level multivariate model
   
-  personal_graph <- mebn.extract_personal_graph_from_mv(person_id, initial_graph, personal_model_dir, assumedpredictors_fat_epros, pk_fppi_palb_targets, "models/BLMM_gamma_qr_multivariate3/fat_epros_missing_palb", personal_data, personal_data_org, datadesc_fat_epros)
+  personal_graph <- mebn.extract_personal_graph_from_mv(person_id, initial_graph, 
+                    personal_model_dir, assumedpredictors_fat_epros, pk_fppi_palb_targets, 
+                    "models/BLMM_gamma_qr_multivariate3/fat_epros_missing_palb", 
+                    personal_data, personal_data_org, datadesc_fat_epros)
 }
 
 datadesc <- datadesc_fat_epros
@@ -470,7 +468,8 @@ imput_length <- length(original_palb)
 
 # Normalize input for predictions (as it was in the likelihood estimation)
 predictors <- nrow(assumedpredictors_fat_epros)
-normalized_input <- sapply(1:predictors, mebn.scale_gaussians, data = dialysis, datadesc = assumedpredictors_fat_epros)
+normalized_input <- sapply(1:predictors, mebn.scale_gaussians, 
+                           data = dialysis, datadesc = assumedpredictors_fat_epros)
 normalized_input_df <- as.data.frame(normalized_input)
 
 normalized_input_df <- cbind(dialysis$potilas, normalized_input_df)
@@ -486,7 +485,8 @@ for (i in 1:nrow(rows_with_missing_palb)) {
   # get model for patient in this datarow 
   
   personal_model_dir <- paste0("data_imputation_models/",datarow$potilas)
-  print(paste0("Reading personal data imputation model '", personal_model_dir, "/personal_graph.graphml'"))
+  print(paste0("Reading personal data imputation model '", personal_model_dir, 
+               "/personal_graph.graphml'"))
   
   personal_graph <- read.graph(paste0(personal_model_dir, "/personal_graph.graphml"), "graphml")
   
@@ -527,21 +527,13 @@ dialysis2 <- dialysis
 dialysis2$palb <- original_palb
 
 saveRDS(dialysis2, "data/DIALYSIS_imputed_palb.rds")
-
 write.csv2(dialysis2, file="data/DIALYSIS_imputed_palb.csv", row.names = FALSE, sep = ";")
-  
 ```
 
 
 With this data imputation we can estimate a cross-covariance model with three responses
 
 ```{r graph_with_gamma_qr_mv3_full, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
-library(rstan)
-source("mebn/v2/MEBNv2.r")
-
-rstan_options (auto_write=TRUE)
-options (mc.cores=parallel::detectCores ())
-
 dialysis_imputed <- readRDS("data/DIALYSIS_imputed_palb.rds")
 
 pk_fppi_palb_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
@@ -557,22 +549,18 @@ dialdiet_gamma_mv3 <- mebn.bipartite_multivariate(reaction_graph = initial_graph
                                    assumed_targets = pk_fppi_palb_targets, 
                                    group_column = "potilas",
                                    local_estimation = mebn.multivariate_sampling,
-                                   local_model_cache = "models/BLMM_gamma_qr_multivariate3/imputed_palb", 
+                                   local_model_cache = 
+                                     "models/BLMM_gamma_qr_multivariate3/imputed_palb", 
                                    stan_model_file = "mebn/v2/BLMM_gamma_qr_mv_cv.stan",
                                    normalize_values = TRUE)
 
-write.graph(dialdiet_gamma_mv3, "graphs/dialysis_gamma_multivariate3_imputed.graphml", "graphml")
+write.graph(dialdiet_gamma_mv3, 
+            "graphs/dialysis_gamma_multivariate3_imputed.graphml", "graphml")
 
 ```
 Finally, we consider also the effect of dialysis treatment type as new level of grouping in data. This allows us to estimate average effects of nutrition for each treatment type and then also personal effects within those treatments.
 
 ```{r graph_with_gamma_qr_mvcross_two_levels, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
-library(rstan)
-source("mebn/v2/MEBNv2.r")
-
-rstan_options (auto_write=TRUE)
-options (mc.cores=parallel::detectCores ())
-
 dialysis_imputed <- readRDS("data/DIALYSIS_imputed_palb.rds")
 
 # add the dialysis treatment type as a grouping factor
@@ -609,9 +597,8 @@ p <- mebn.multivariate_dens_overlays("models/BLMM_gamma_mv_cross/two_levels", pk
 #ggsave("figures/ppc_mv3_cross.pdf", plot = p, width = 4, height = 4)
 p
 ```
-##Model analysis 
 
-
+# Model analysis 
 
 ```{r, eval=FALSE, typical_effects_figure, fig.cap="This visualization shows mean of posterior for typical coefficients as weight of the connection between blood concentrations and nutrients at diet affecting it. The figure is plotted with iGraph package for R language (v 1.2.6, https://igraph.org/r).", fig.height = 4, fig.width=5, echo=FALSE, fig.align = "left", message=FALSE, warning=FALSE, cache=FALSE}
 
@@ -623,14 +610,14 @@ graph_layout <- mebn.plot_typical_effects(dialysis_mv3cross_treatment, 20, graph
 ```
 
 
-```{r, effect_correlation_plot, fig.height = 15, fig.align="left", cache=TRUE}
+```{r, effect_correlation_plot_preparation, fig.width = 8, out.width="80%", fig.align="left", eval=FALSE, echo=FALSE}
 library(rstan)
 library(ggcorrplot)
 
 #target_blmm <- mebn.get_localfit("pk_fppi_palb", "models/BLMM_gamma_mv_cross")
 target_blmm <- mebn.get_localfit("pk_fppi_palb", "models/BLMM_gamma_mv_cross/two_levels")
 
-C_extract <- extract(target_blmm, pars = c("C_s"))
+C_extract <- rstan::extract(target_blmm, pars = c("C_s"))
 
 C_cross_draws <- C_extract$C[,,]
 C_cross <- apply(C_cross_draws, 2:3, mean)
@@ -643,19 +630,7 @@ C_cross.df <- as.data.frame(C_cross)
 colnames(C_cross.df) <- c("P-K level", paste("P-K: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "fP-Pi level", paste("fP-Pi: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "P-Alb level", paste("P-Alb: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""))
 rownames(C_cross.df) <- c("P-K level", paste("P-K: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "fP-Pi level", paste("fP-Pi: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "P-Alb level", paste("P-Alb: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""))
 
-p <- nrow(assumedpredictors_fat_epros) + 1
-
-ggcorrplot(C_cross.df, hc.order = FALSE, lab = FALSE, type="lower") +
-  scale_fill_gradient2(limit = c(min(C_cross),max(C_cross)), low = "blue", high = "red", mid = "white", midpoint = mean(C_cross)) +
-  ggplot2::labs(x = NULL, y = NULL) +  
-  ggplot2::ggtitle("Cross-model correlations of personal effects") +
-  ggplot2::theme(
-    axis.title.x = element_text(angle = 0, color = 'grey20'),
-    axis.title.y = element_text(angle = 90, color = 'grey20')
- ) +
-ggplot2::geom_vline(xintercept = c(p,2*p), linetype="solid", color = "grey", size=1) +
-ggplot2::geom_hline(yintercept = c(p,2*p), linetype="solid", color = "grey", size=1)
-
+saveRDS(C_cross.df, "subject_effect_correlations_df.rds")
 
 # Custom corrplot
 # library(reshape2)   
@@ -675,8 +650,42 @@ ggplot2::geom_hline(yintercept = c(p,2*p), linetype="solid", color = "grey", siz
 
 ```
 
+```{r, effect_correlation_plot, fig.width=8, fig.out="100%", fig.align="left", eval=TRUE, cache=FALSE, echo=FALSE}
+library(ggcorrplot)
 
-```{r, top_correlations, cache=TRUE}
+C_cross.df <- readRDS("subject_effect_correlations_df.rds")
+
+p <- nrow(assumedpredictors_fat_epros) + 1
+
+cplot <- ggcorrplot(C_cross.df, hc.order = FALSE, lab = FALSE, type="lower") +
+  scale_fill_gradient2(limit = c(min(C_cross.df),max(C_cross.df)), low = "blue", high = "red", mid = "white", midpoint = 0) +
+  ggplot2::labs(x = NULL, y = NULL) +  
+  ggplot2::ggtitle("Cross-model correlations of personal effects") +
+  ggplot2::theme(
+    plot.title = element_text(size = 10),
+    axis.title.x = element_text(angle = 0, color = 'grey20'),
+    axis.title.y = element_text(angle = 90, color = 'grey20'),
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    legend.text = element_text(size = 6),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    plot.margin = margin(t = 0,  # Top margin
+                         r = 0,  # Right margin
+                         b = 0,  # Bottom margin
+                         l = 0) # Left margin
+ ) +
+ggplot2::geom_vline(xintercept = c(p,2*p), linetype="solid", color = "grey", size=1) +
+ggplot2::geom_hline(yintercept = c(p,2*p), linetype="solid", color = "grey", size=1)
+
+cplot
+
+```
+
+
+
+
+```{r, top_correlations, eval=TRUE, cache=TRUE, echo=FALSE}
 effect_cor.df <- data.frame(matrix(ncol = 3, nrow = 0), row.names = NULL)
 
 for (x in 1:dim(C_cross.df)[1])
@@ -706,17 +715,17 @@ top_correlations <- effect_cor.df %>%
   arrange(-corr) %>%
   slice(which(row_number() %% 2 == 1))
 
-kable(top_correlations, "latex", escape = F, booktabs = T, row.names = FALSE, digits = 3, caption = "Table shows 30 highest positive or negative correlations between personal effects of nutrients or other considered predictors. This structure of correlations is used in estimating the personal effects based on personal intake and matching concentrations.")
+kable(top_correlations, "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3, caption = "Table shows 30 highest positive or negative correlations between personal effects of nutrients or other considered predictors. This structure of correlations is used in estimating the personal effects based on personal intake and matching concentrations.") %>%
+    kable_styling(latex_options = "HOLD_position")
 
 ```
 
 
-
-##Effects of nutrition in both treatment and personal levels
+# Effects of nutrition in both treatment and personal levels
 
 First, we create personal models that include also information of personal treatment
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, echo=FALSE}
 source("mebn/v2/MEBNv2.r")
 
 # Extract generative models for patients with data from personal grouping
@@ -781,7 +790,7 @@ for (person_id in 1:37) {
 
 ```
 
-```{r simulated_MSE}
+```{r simulated_MSE, eval=FALSE, echo=FALSE}
 library(igraph)
 source("mebn/v2/MEBNv2.r")
 
@@ -865,7 +874,8 @@ write.csv2(mse_summary, file="model_evaluation/NRMSE_comparison_cross_12.csv", r
 
 
 ```
-```{r MSE_table}
+
+```{r MSE_table, cache=TRUE, echo=FALSE}
 
 mse_summary <- readRDS("model_evaluation/NRMSE_comparison_cross_12.rds")
 
@@ -883,26 +893,23 @@ mv3c2 <- cbind("mv3_cross_two_levels", mv3c2_pk_mse, mv3c2_fppi_mse, mv3c2_palb_
 mse_table <- rbind(mv3c2, mv3c1)
 mse_table[,2:5] <- round(as.numeric(mse_table[,2:5]),3)
 
-kable(mse_table, "html", escape = F, booktabs = T, row.names = FALSE, digits = 3,align="lrrrr",
+kable(mse_table, "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3,align="lrrrr",
   caption = "Personal graphical models with different reaction model candidates are evaluated with NRMSE for each modelled concentration and average model error.",
   col.names = c("Reaction model", "P-K", "fP-Pi", "P-Alb", "average error")) %>%
   add_header_above(c(" " = 1, "NRMSE" = 4), escape = F) %>%
- kable_styling(latex_options="scale_down") %>%  
+  kable_styling(latex_options="scale_down") %>%  
+  kable_styling(latex_options = "HOLD_position") %>%
   kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
   row_spec(0,bold=TRUE) 
 
   #  save_kable(file = "tables/model_nrmse_comparison.pdf", keep_tex = TRUE)
 
-
-
 ```
-
-
 
 
 Then, we make a summary from effects of treatment and personal variations within the treatment
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, eval=FALSE}
 
 library(igraph)
 graph_dir <- "graphs/mv3_cross_two_levels/"
@@ -967,7 +974,7 @@ saveRDS(effect_summary, "patient_summary/two_level_effect_summary.rds")
 
 # Two level effect summary
 
-```{r effect_summary_table, cache=TRUE}
+```{r effect_summary_table, eval=FALSE, cache=TRUE, echo=FALSE}
 library(dplyr)
 
 effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
@@ -1121,9 +1128,9 @@ two_level_effects_table.df <- two_level_effects_table.df[order(-two_level_effect
 
 ```
 
-Following table summarizes the personal effects of potassium and phosphorous intake on concentrations. 
+```{r pot_pho_effects_only, cache=TRUE, echo=FALSE, eval=FALSE}
 
-```{r pot_pho_effects_only, cache=TRUE, echo=FALSE}
+# This table is used in the article
 
 pot_pho_effects.df <- two_level_effects_table.df %>%
   filter(nutrient == "Potassium" | nutrient == "Phosphorous") %>%
@@ -1196,7 +1203,7 @@ kable(two_level_effects_table.df[c(3:4,5,8:16)], "latex", escape = F, booktabs =
 
 Here we query recommendations with graphical models. In recommendation, we let potassium and phosphorous intakes have values uniformly from full generally recommended range.
 
-```{r recommendation_overview_simulation, eval=FALSE, cache=TRUE,echo=FALSE, message=FALSE}
+```{r recommendation_overview_simulation, eval=FALSE,echo=FALSE, message=FALSE}
 source("mebn/v2/MEBNv2.r")
 library(igraph)
 library(gridExtra)
@@ -1494,7 +1501,7 @@ saveRDS(patient_summary, paste0("patient_summary/simulation",simulation,"/recomm
 
 ## Recommendation plot
 
-```{r personal_effect_summary, cache=TRUE,echo=FALSE}
+```{r personal_effect_summary,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
 library(igraph)
 graph_dir <- "graphs/mv3_cross_two_levels/"
 
@@ -1540,7 +1547,8 @@ colnames(personal_effect_summary) <- c("person_id","kalium","fosfori","pk","fppi
 ```
 
 
-```{r concentration_highs_and_lows, echo=FALSE}
+```{r concentration_highs_and_lows, echo=FALSE,warning=FALSE,message=FALSE}
+library(dplyr)
 
 simulation <- "X50_B50_A50_I50"
 #simulation <- "X50_B50_A50_I50_fppi2"
@@ -1576,7 +1584,8 @@ for (person_id in 1:37) {
       summarise(quant = quantile_limits,
             pk = quantile(pk, quantile_limits), 
             fppi = quantile(fppi, quantile_limits), 
-            palb = quantile(palb, quantile_limits))
+            palb = quantile(palb, quantile_limits),
+            .groups = "keep")
       
     pk_low_rec <- min(conc_quants[conc_quants$quant == low_conf,]$pk)
     pk_high_rec <- max(conc_quants[conc_quants$quant == conf,]$pk)
@@ -1721,6 +1730,10 @@ intake_reasoning.df$pho_text <- paste0(round(as.numeric(intake_reasoning.df$min_
 
 # concentration reasoning
 
+personal_effect_summary$person_id <- as.character(personal_effect_summary$person_id)
+muq0_summary$person_id <- as.character(muq0_summary$person_id)
+personal_targets$person_id <- as.character(personal_targets$person_id)
+
 conc_reasoning.df <- patient_summary %>%
   inner_join(personal_effect_summary, by="person_id") %>%
   inner_join(muq0_summary, by="person_id") %>%
@@ -1838,7 +1851,7 @@ recommendation_plot <- grid.arrange(pot_plot, pho_plot, pk_plot, fppi_plot, palb
 ```
 
 
-```{r nuts_intake_method_figure, cache=TRUE}
+```{r nuts_intake_method_figure, cache=TRUE, eval=TRUE, echo=FALSE}
 library(ggplot2)
 library(gridExtra)
 library(ggrepel)
@@ -2018,7 +2031,7 @@ for (person_id in 10:10) {
       
       #reasoning_plot <- grid.arrange(intake_plot, pk_plot, fppi_plot, palb_plot, nrow = 2, ncol=2, padding=0) 
       reasoning_plot <- grid.arrange(intake_plot, pk_plot, fppi_plot, palb_plot, layout_matrix = lay, padding=0)
-      ggsave(paste0("figures/reasoning_plots/reasoning_plots_",person_id,".pdf"), plot = reasoning_plot, width = 6, height = 6, scale = 1)
+      #ggsave(paste0("figures/reasoning_plots/reasoning_plots_",person_id,".pdf"), plot = reasoning_plot, width = 6, height = 6, scale = 1)
     }
     
   } # file exists
