@@ -627,8 +627,8 @@ diag(C_cross) <- 0
 
 C_cross.df <- as.data.frame(C_cross)
 
-colnames(C_cross.df) <- c("P-K level", paste("P-K: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "fP-Pi level", paste("fP-Pi: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "P-Alb level", paste("P-Alb: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""))
-rownames(C_cross.df) <- c("P-K level", paste("P-K: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "fP-Pi level", paste("fP-Pi: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""), "P-Alb level", paste("P-Alb: ", as.vector(assumedpredictors_fat_epros$Description), sep = ""))
+colnames(C_cross.df) <- c("P-K level", paste(as.vector(assumedpredictors_fat_epros$Description), " -> P-K", sep = ""), "fP-Pi level", paste(as.vector(assumedpredictors_fat_epros$Description), " -> fP-Pi", sep = ""), "P-Alb level", paste(as.vector(assumedpredictors_fat_epros$Description), " -> P-Alb", sep = ""))
+rownames(C_cross.df) <- c("P-K level", paste(as.vector(assumedpredictors_fat_epros$Description), " -> P-K", sep = ""), "fP-Pi level", paste(as.vector(assumedpredictors_fat_epros$Description), " -> fP-Pi", sep = ""), "P-Alb level", paste(as.vector(assumedpredictors_fat_epros$Description), "-> P-Alb", sep = ""))
 
 saveRDS(C_cross.df, "subject_effect_correlations_df.rds")
 
@@ -650,7 +650,7 @@ saveRDS(C_cross.df, "subject_effect_correlations_df.rds")
 
 ```
 
-```{r, effect_correlation_plot, fig.width=8, fig.out="100%", fig.align="left", eval=TRUE, cache=FALSE, echo=FALSE}
+```{r, effect_correlation_plot, fig.width=14, fig.out="100%", fig.align="left", eval=TRUE, cache=FALSE, echo=FALSE}
 library(ggcorrplot)
 
 C_cross.df <- readRDS("subject_effect_correlations_df.rds")
@@ -660,14 +660,13 @@ p <- nrow(assumedpredictors_fat_epros) + 1
 cplot <- ggcorrplot(C_cross.df, hc.order = FALSE, lab = FALSE, type="lower") +
   scale_fill_gradient2(limit = c(min(C_cross.df),max(C_cross.df)), low = "blue", high = "red", mid = "white", midpoint = 0) +
   ggplot2::labs(x = NULL, y = NULL) +  
-  ggplot2::ggtitle("Cross-model correlations of personal effects") +
   ggplot2::theme(
     plot.title = element_text(size = 10),
     axis.title.x = element_text(angle = 0, color = 'grey20'),
     axis.title.y = element_text(angle = 90, color = 'grey20'),
-    axis.text.x = element_text(size = 6),
-    axis.text.y = element_text(size = 6),
-    legend.text = element_text(size = 6),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    legend.text = element_text(size = 8),
     legend.position = "bottom",
     legend.title = element_blank(),
     plot.margin = margin(t = 0,  # Top margin
@@ -678,12 +677,13 @@ cplot <- ggcorrplot(C_cross.df, hc.order = FALSE, lab = FALSE, type="lower") +
 ggplot2::geom_vline(xintercept = c(p,2*p), linetype="solid", color = "grey", size=1) +
 ggplot2::geom_hline(yintercept = c(p,2*p), linetype="solid", color = "grey", size=1)
 
-cplot
+ggsave(paste0("figures/subject_level_reaction_correlations.pdf"), plot = cplot, width = 15, height = 15, scale = 0.7)
 
 ```
 
-
-
+```{r, include=TRUE, fig.align="center", fig.cap=c("Correlation plot of matrix $C$ that includes the estimated within-model and cross-model correlations of personal effects"), echo=FALSE}
+knitr::include_graphics("figures/subject_level_reaction_correlations.pdf")
+```
 
 ```{r, top_correlations, eval=TRUE, cache=TRUE, echo=FALSE}
 effect_cor.df <- data.frame(matrix(ncol = 3, nrow = 0), row.names = NULL)
@@ -974,7 +974,7 @@ saveRDS(effect_summary, "patient_summary/two_level_effect_summary.rds")
 
 # Two level effect summary
 
-```{r effect_summary_table, eval=FALSE, cache=TRUE, echo=FALSE}
+```{r effect_summary_table, eval=TRUE, cache=TRUE, echo=FALSE}
 library(dplyr)
 
 effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
@@ -1154,10 +1154,6 @@ kable(pot_pho_effects.df[c(3:4,5,8:16)], "latex", escape = F, booktabs = T, row.
 This large table in includes all estimated nutrition effects 
 
 ```{r full_effects_table, cache=TRUE, echo=FALSE}
-#two_level_effects_table.df <- two_level_effects_table.df[two_level_effects_table.df$abs_general > 0.2,]
-
-#two_level_effects_table.df <- two_level_effects_table.df[two_level_effects_table.df$effect_description == "Act. D-vit -> P-Alb",]
-
 # kable(two_level_effects_table.df[2:14], "latex", booktabs = T, row.names = FALSE, digits = 2,align="lrrrrrrrrrrrr",
 #   caption = "Variation of nutrition effects between different dialysis treatments and between patients within the same treatment.",
 #   col.names = c("Effect", "General effect", "between treatments", "within treatments", "avg", "min", "max", "avg", "min", "max", "avg", "min", "max")) %>%
@@ -1168,7 +1164,7 @@ This large table in includes all estimated nutrition effects
 #   save_kable(file = "tables/variation_of_nutrition_effects2.pdf", keep_tex = TRUE)
 
 # variations removed 
-kable(two_level_effects_table.df[c(3:4,5,8:16)], "latex", escape = F, booktabs = T, row.names = FALSE, digits = 2,align="llccccccccccc",
+kable(two_level_effects_table.df[c(3:4,5,8:16)], "latex", escape = T, booktabs = T, row.names = FALSE, digits = 2,align="llccccccccccc",
   caption = "Variation of nutrition effects between different dialysis treatments and between patients within the same treatment.",
   col.names = c("Nutrient", "Conc.", "General effect", "avg", "min", "max", "avg", "min", "max", "avg", "min", "max")) %>%
   column_spec(1, width = "7em") %>%
@@ -1176,25 +1172,14 @@ kable(two_level_effects_table.df[c(3:4,5,8:16)], "latex", escape = F, booktabs =
   column_spec(4, bold=TRUE) %>%
   column_spec(7, bold=TRUE) %>%
   column_spec(10, bold=TRUE) %>%
+  kable_styling(latex_options="scale_down") %>%  
   add_header_above(c(" " = 3, "Home hemodialysis" = 3, "Hospital hemodialysis" = 3, "Peritoneal dialysis" = 3), escape = F) %>%
- kable_styling(latex_options="scale_down") %>%  
   kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
-  row_spec(0,bold=TRUE) %>%
-  save_kable(file = "tables/variation_of_nutrition_effects.pdf", keep_tex = TRUE)
+  row_spec(0,bold=TRUE) 
+  #save_kable(file = "tables/variation_of_nutrition_effects.pdf", keep_tex = TRUE)
+
 
 #two_level_effects_table.df
-
-# # TODO: Latex table testing with general effect only
-# kable(two_level_effects_table.df[c(3:5)], "latex", escape = F, booktabs = T, row.names = FALSE, digits = 2, align="lr",
-#   caption = "Variation of nutrition effects between different dialysis treatments and between patients within the same treatment.",
-#   col.names = c("Nutrient", "Concentration", "General effect")) %>%
-#   column_spec(1, width = "7em") %>%
-#  kable_styling(latex_options="scale_down") %>%  
-#   kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
-#   row_spec(0,bold=TRUE) %>%
-#   save_kable(file = "tables/variation_test_table.pdf", keep_tex = TRUE)
-# two_level_effects_table.df
-
 
 ```
 
