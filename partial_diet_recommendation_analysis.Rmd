@@ -1725,21 +1725,30 @@ intake_reasoning.df <- accepted_intake.df %>%
     inner_join(patient_summary, by="person_id") %>%
     mutate(max_conc_prob = as.numeric(max_conc_prob)) %>%
     mutate(max_recom_norm = ifelse(accepted == 1, (as.numeric(max_pot) - potassium_org_mean) / potassium_org_sd + (as.numeric(max_pho) - phosphorous_org_mean) / phosphorous_org_sd + 1000, max_conc_prob)) %>%
-  mutate(min_pot = ifelse(min_pot == "-1", 0, as.numeric(min_pot))) %>%
-  mutate(max_pot = ifelse(max_pot == "-1", 2500, as.numeric(max_pot))) %>%
-  mutate(min_pho = ifelse(min_pho == "-1", 0, as.numeric(min_pho))) %>%
-  mutate(max_pho = ifelse(max_pho == "-1", 1000, as.numeric(max_pho))) %>%
-  mutate(max_pho = ifelse(max_pho == "-1", 1000, as.numeric(max_pho))) %>% 
   mutate(person_text = paste0(person_id, " ",treatment))
+
+#  mutate(min_pot = ifelse(min_pot == "-1", 0, as.numeric(min_pot))) %>%
+#  mutate(max_pot = ifelse(max_pot == "-1", 2500, as.numeric(max_pot))) %>%
+#  mutate(min_pho = ifelse(min_pho == "-1", 0, as.numeric(min_pho))) %>%
+#  mutate(max_pho = ifelse(max_pho == "-1", 1000, as.numeric(max_pho))) %>%
   
 intake_reasoning.df$pot_text <- paste0(round(as.numeric(intake_reasoning.df$min_pot),0)," - ", round(as.numeric(intake_reasoning.df$max_pot),0))
 intake_reasoning.df$pho_text <- paste0(round(as.numeric(intake_reasoning.df$min_pho),0)," - ", round(as.numeric(intake_reasoning.df$max_pho),0))
 
+intake_reasoning.df[intake_reasoning.df$min_pho == "-1",]$pot_text <- ""
+intake_reasoning.df[intake_reasoning.df$min_pho == "-1",]$pho_text <- ""
+                    
 # concentration reasoning
 
 personal_effect_summary$person_id <- as.character(personal_effect_summary$person_id)
 muq0_summary$person_id <- as.character(muq0_summary$person_id)
 personal_targets$person_id <- as.character(personal_targets$person_id)
+
+# TODO: Tallenna myös osittain hyväksytyt pitoisuudet jotta tämä toimisi. näyttäisi kivemmalta.
+# nyt _recejä ei ole tallessa
+
+#  mutate(pk_low_rec = ifelse(max_pk_prob >= 0.8, pk_low_rec, pk_low)) %>%
+#  mutate(pk_high_rec = ifelse(max_pk_prob >= 0.8, pk_high_rec, pk_high)) %>%
 
 conc_reasoning.df <- patient_summary %>%
   inner_join(personal_effect_summary, by="person_id") %>%
@@ -1811,10 +1820,10 @@ pk_plot <- ggplot(data = conc_reasoning.df, aes(y = reorder(person_id, max_recom
       theme_bw() +
       scale_color_manual(aesthetics = "fill", values = ProbColorPalette) + 
       scale_x_continuous(breaks=c(0,3.4,4.7,6)) +
-      #geom_vline(aes(xintercept = pk_lower_limit), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      #geom_vline(aes(xintercept = pk_upper_limit), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      geom_point(aes(x=pk_lower_limit), shape=3) +
-      geom_point(aes(x=pk_upper_limit), shape=3) +
+      geom_text(aes(x=pk_lower_limit, label="|"), fontface="plain", size=4, color="black") +
+      geom_text(aes(x=pk_upper_limit, label="|"), fontface="plain", size=4, color="black") +
+      #geom_point(aes(x=pk_lower_limit), shape=3) +
+      #geom_point(aes(x=pk_upper_limit), shape=3) +
       labs(x = element_blank(), y = element_blank()) +
       theme(axis.text.y = element_blank(), axis.text.x = element_text(size=6), axis.title = element_text(size=9), plot.title = element_text(size=9)) +
       ggtitle("P-K (mmol/l)")
@@ -1825,10 +1834,10 @@ fppi_plot <- ggplot(data = conc_reasoning.df, aes(y = reorder(person_id, max_rec
       geom_bar(stat='identity', aes(x=fppi_low_rec), fill=mu_q0_color, color=mu_q0_color, width=0.6, show.legend = FALSE) +
       geom_text(aes(x=0.5, label=fppi_prob_text), fontface="bold", size=2.5, color="white") +
       scale_x_continuous(breaks=c(0,0.9,1.78,3)) +
-      #geom_vline(aes(xintercept = fppi_lower_limit), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      #geom_vline(aes(xintercept = fppi_upper_limit), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      geom_point(aes(x=fppi_lower_limit), shape=3) +
-      geom_point(aes(x=fppi_upper_limit), shape=3) +
+      geom_text(aes(x=fppi_lower_limit, label="|"), fontface="plain", size=4, color="black") +
+      geom_text(aes(x=fppi_upper_limit, label="|"), fontface="plain", size=4, color="black") +
+      #geom_point(aes(x=fppi_lower_limit), shape=3) +
+      #geom_point(aes(x=fppi_upper_limit), shape=3) +
       theme_bw() +
       scale_color_manual(aesthetics = "fill", values = ProbColorPalette) + 
       theme(axis.text.y = element_blank(), axis.text.x = element_text(size=6), axis.title = element_text(size=9), plot.title = element_text(size=9)) +
@@ -1842,11 +1851,10 @@ palb_plot <- ggplot(data = conc_reasoning.df, aes(y = reorder(person_id, max_rec
       #geom_text(aes(x=0.5, label=palb_accepted), fontface="bold", size=2.5, color="white") +
       geom_text(aes(x=7, label=palb_prob_text), fontface="bold", size=2.5, color="white") +
       scale_x_continuous(breaks=c(0,36,45)) +
-      #geom_vline(aes(xintercept = palb_lower_limit), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      #geom_vline(aes(xintercept = palb_upper_limit), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      #geom_vline(xintercept = c(36,45), linetype="solid", color = "black", size=0.2, alpha=0.8) +
-      geom_point(aes(x=palb_lower_limit), shape=3) +
-      geom_point(aes(x=palb_upper_limit), shape=3) +
+      geom_text(aes(x=palb_lower_limit), label="|", fontface="plain", size=4, color="black") +
+      geom_text(aes(x=palb_upper_limit), label="|", fontface="plain", size=4, color="black") +
+      #geom_point(aes(x=palb_lower_limit), shape=3) +
+      #geom_point(aes(x=palb_upper_limit), shape=3) +
       theme_bw() +
       scale_color_manual(aesthetics = "fill", values = ProbColorPalette) + 
       theme(axis.text.y = element_blank(), axis.text.x = element_text(size=6), axis.title = element_text(size=9), plot.title = element_text(size=9)) +
@@ -1854,6 +1862,7 @@ palb_plot <- ggplot(data = conc_reasoning.df, aes(y = reorder(person_id, max_rec
       ggtitle("P-Alb (g/l)")
 
 recommendation_plot <- grid.arrange(pot_plot, pho_plot, pk_plot, fppi_plot, palb_plot, ncol=5,nrow=1, padding=0,widths=c(1.32,1,1,1,1))
+ggsave(paste0("figures/recommendation_plot_X50_B50.pdf"), plot = recommendation_plot, width = 6, height = 6, scale = 1)
 
 ```
 
@@ -2001,10 +2010,10 @@ for (person_id in 10:10) {
         labs(x = "P-K (mmol/l)", y = NULL, title=element_blank()) +
         geom_vline(xintercept = pk_recommendations, linetype="solid", color = "black", size=0.2) +
         geom_vline(xintercept = as.numeric(info$true_pk), linetype="dashed", color = "black", size=0.5) +
-        scale_x_continuous(breaks=c(pk_recommendations,3,4,5,6)) +
+        scale_x_continuous(breaks=c(pk_recommendations,3,4,5,6), limits=c(pk_recommendations,2,3,4,5,6,7)) +
         scale_colour_manual(values = MyPalette) +
-        annotate("rect", xmin=-Inf, xmax=c(3.4), ymax=Inf, ymin=-Inf, alpha = .2) + 
-        annotate("rect", xmin=c(4.7), xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
+        annotate("rect", xmin=-Inf, xmax=pk_recommendations[1], ymax=Inf, ymin=-Inf, alpha = .2) + 
+        annotate("rect", xmin=pk_recommendations[2], xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
         theme_bw() +
         theme(axis.text.x = element_text(size=6), axis.title = element_text(size=8), plot.title = element_text(size=9)) 
       
@@ -2013,22 +2022,23 @@ for (person_id in 10:10) {
         labs(x = "fP-Pi (mmol/l)", y = NULL) +
         geom_vline(xintercept = fppi_recommendations, linetype="solid", color = "black", size=0.2) +
         geom_vline(xintercept = as.numeric(info$true_fppi), linetype="dashed", color = "black", size=0.5) +
-        scale_x_continuous(breaks=c(fppi_recommendations,c(0,1,2,3))) +
+        scale_x_continuous(breaks=c(fppi_recommendations,c(0,1,2,3)), limits = c(fppi_recommendations,c(0,1,2,3))) +
         scale_colour_manual(values = MyPalette) +
-        annotate("rect", xmin=c(1.8), xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
+        annotate("rect", xmin=-Inf, xmax=fppi_recommendations[1], ymax=Inf, ymin=-Inf, alpha = .2) + 
+        annotate("rect", xmin=fppi_recommendations[2], xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
         theme_bw() +
         theme(axis.text.x = element_text(size=6), axis.title = element_text(size=8), plot.title = element_text(size=9))
       
       palb_plot <- ggplot(concs_minmax.df, aes(x = palb, color=factor(color_order), group=factor(color_order))) +
-        geom_density(aes(color=factor(color_order)), show.legend = FALSE) +
+        geom_density(aes(color=factor(color_order)),rel_min_height = 0.01, show.legend = FALSE) +
         guides(guide = guide_legend(label.position = "bottom")) +
         labs(x = "P-Alb (g/l)", y = NULL) +
         geom_vline(xintercept = palb_recommendations, linetype="solid", color = "black", size=0.2) +
         geom_vline(xintercept = as.numeric(info$true_palb), linetype="dashed", color = "black", size=0.5) +
-        scale_x_continuous(breaks=c(palb_recommendations,30,40,50)) +
+        scale_x_continuous(breaks=c(palb_recommendations,30,40,50), limits = c(palb_recommendations,30,40,50)) +
         scale_colour_manual(values = MyPalette) +
-        annotate("rect", xmin=-Inf, xmax=c(34), ymax=Inf, ymin=-Inf, alpha = .2) + 
-        annotate("rect", xmin=c(48), xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
+        annotate("rect", xmin=-Inf, xmax=palb_recommendations[1], ymax=Inf, ymin=-Inf, alpha = .2) + 
+        annotate("rect", xmin=palb_recommendations[2], xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
         theme_bw() +
         theme(legend.position="bottom", legend.title = element_blank(), axis.text.x = element_text(size=6), axis.title = element_text(size=8), plot.title = element_text(size=9))
 
@@ -2038,7 +2048,7 @@ for (person_id in 10:10) {
       
       #reasoning_plot <- grid.arrange(intake_plot, pk_plot, fppi_plot, palb_plot, nrow = 2, ncol=2, padding=0) 
       reasoning_plot <- grid.arrange(intake_plot, pk_plot, fppi_plot, palb_plot, layout_matrix = lay, padding=0)
-      #ggsave(paste0("figures/reasoning_plots/reasoning_plots_",person_id,".pdf"), plot = reasoning_plot, width = 6, height = 6, scale = 1)
+      ggsave(paste0("figures/reasoning_plots/reasoning_plots_",person_id,".pdf"), plot = reasoning_plot, width = 6, height = 6, scale = 1)
     }
     
   } # file exists
