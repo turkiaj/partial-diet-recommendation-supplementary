@@ -594,7 +594,10 @@ write.graph(dialdiet_gamma_mv3_two_level,
 ```
 
 
-```{r dialysis_gamma_mv_cross_2levels_ppc, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE, cache=TRUE, fig.cap="In this model the three concentrations and their parameters are stacked into one univariate model for estimating cross-model correlations."}
+```{r dialysis_gamma_mv_cross_2levels_ppc, echo=FALSE, message=FALSE, warning=FALSE, eval=TRUE, cache=TRUE, fig.cap="In this model the three concentrations and their parameters are stacked into one univariate model for estimating cross-model correlations."}
+dialysis_imputed <- readRDS("data/DIALYSIS_imputed_palb.rds")
+pk_fppi_palb_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
+
 p <- mebn.multivariate_dens_overlays("models/BLMM_gamma_mv_cross/two_levels", pk_fppi_palb_targets, dialysis_imputed) 
 #ggsave("figures/ppc_mv3_cross.pdf", plot = p, width = 4, height = 4)
 p
@@ -1170,7 +1173,7 @@ This large table in includes all estimated nutrition effects
 #  caption = "",
 
 kable(two_level_effects_table.df[1:33,c(3:4,5,8:16)], "latex", escape = F, booktabs = T, row.names = FALSE, digits = 2,align="llccccccccccc",
-  caption = "Estimated effects of nutrition in general and dialysis treatment levels, and in personal level within the same treatment.",
+  caption = "Table shows nutrition effect magnitudes from nutrients and other modeled features $(j = 1,\\dots,22)$ to blood concentrations $(i = 1,\\dots,3)$ for analyzed patients $(p = 1,\\dots,37)$ in all three additive levels of the model. General effects ($\\hat{\\beta}_{ij}$) are shown to vary between patients in home hemodialysis, hospital hemodialysis, and peritoneal dialysis. First column of each dialysis type (avg) shows typical effect of the treatment ($\\hat{\\beta}_{ij} + \\hat{g}_{ijk}, k = 1,\\dots,3$) that can further vary personally. Minimum and maximum of these personal effects are shown within each treatment ($\\hat{\\beta}_{ij} + \\hat{g}_{ijk} + \\hat{b}_{ijp}$). The table is sorted in decreasing order of between-treatment variation ($\\hat{\\sigma}_g$) and all the estimates include their 90\\%-credible intervals.",
   col.names = c("Nutrient", "Conc.", "General effect", "avg", "min", "max", "avg", "min", "max", "avg", "min", "max")) %>%
   column_spec(1, width = "7em") %>%
   column_spec(2, width = "4em") %>%
@@ -1184,7 +1187,7 @@ kable(two_level_effects_table.df[1:33,c(3:4,5,8:16)], "latex", escape = F, bookt
   save_kable(file = "tables/variation_of_nutrition_effects1.pdf", keep_tex = TRUE)
 
 kable(two_level_effects_table.df[34:66,c(3:4,5,8:16)], "latex", escape = F, booktabs = T, row.names = FALSE, digits = 2,align="llccccccccccc",
-  caption = "Estimated effects of nutrition in general and dialysis treatment levels, and in personal level within the same treatment (table continues).",
+  caption = "Table shows nutrition effect magnitudes from nutrients and other modeled features $(j = 1,\\dots,22)$ to blood concentrations $(i = 1,\\dots,3)$ for analyzed patients $(p = 1,\\dots,37)$ in all three additive levels of the model. General effects ($\\hat{\\beta}_{ij}$) are shown to vary between patients in home hemodialysis, hospital hemodialysis, and peritoneal dialysis. First column of each dialysis type (avg) shows typical effect of the treatment ($\\hat{\\beta}_{ij} + \\hat{g}_{ijk}, k = 1,\\dots,3$) that can further vary personally. Minimum and maximum of these personal effects are shown within each treatment ($\\hat{\\beta}_{ij} + \\hat{g}_{ijk} + \\hat{b}_{ijp}$). The table is sorted in decreasing order of between-treatment variation ($\\hat{\\sigma}_g$) and all the estimates include their 90\\%-credible intervals.  (table continues)",
   col.names = c("Nutrient", "Conc.", "General effect", "avg", "min", "max", "avg", "min", "max", "avg", "min", "max")) %>%
   column_spec(1, width = "7em") %>%
   column_spec(2, width = "4em") %>%
@@ -1902,6 +1905,16 @@ for (person_id in 10:10) {
     max_f <- max(dialysis[dialysis$potilas == info$subject_code,]$fosfori)
     avg_f <- mean(dialysis[dialysis$potilas == info$subject_code,]$fosfori)
     
+    # these are not anymore retrieved at simulation
+    
+    true_concs <- dialysis %>%
+     filter(potilas == subject_code) %>%
+     select(havainto, pk, fppi, palb)
+
+    info$true_pk <- mean(true_concs$pk)
+    info$true_fppi <- mean(true_concs$fppi)
+    info$true_palb <- mean(true_concs$palb)
+    
     accepted_intake.df <- readRDS(accepted_intake)
   
     if (patient_summary$min_pot != -1)
@@ -2022,7 +2035,7 @@ for (person_id in 10:10) {
         labs(x = "fP-Pi (mmol/l)", y = NULL) +
         geom_vline(xintercept = fppi_recommendations, linetype="solid", color = "black", size=0.2) +
         geom_vline(xintercept = as.numeric(info$true_fppi), linetype="dashed", color = "black", size=0.5) +
-        scale_x_continuous(breaks=c(fppi_recommendations,c(0,1,2,3)), limits = c(fppi_recommendations,c(0,1,2,3))) +
+        scale_x_continuous(breaks=c(fppi_recommendations,c(0,2,2.5)), limits = c(0.7,2.7)) +
         scale_colour_manual(values = MyPalette) +
         annotate("rect", xmin=-Inf, xmax=fppi_recommendations[1], ymax=Inf, ymin=-Inf, alpha = .2) + 
         annotate("rect", xmin=fppi_recommendations[2], xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
@@ -2030,18 +2043,18 @@ for (person_id in 10:10) {
         theme(axis.text.x = element_text(size=6), axis.title = element_text(size=8), plot.title = element_text(size=9))
       
       palb_plot <- ggplot(concs_minmax.df, aes(x = palb, color=factor(color_order), group=factor(color_order))) +
-        geom_density(aes(color=factor(color_order)),rel_min_height = 0.01, show.legend = FALSE) +
+        geom_density(aes(color=factor(color_order)), show.legend = FALSE) +
         guides(guide = guide_legend(label.position = "bottom")) +
         labs(x = "P-Alb (g/l)", y = NULL) +
         geom_vline(xintercept = palb_recommendations, linetype="solid", color = "black", size=0.2) +
         geom_vline(xintercept = as.numeric(info$true_palb), linetype="dashed", color = "black", size=0.5) +
-        scale_x_continuous(breaks=c(palb_recommendations,30,40,50), limits = c(palb_recommendations,30,40,50)) +
+        scale_x_continuous(breaks=c(palb_recommendations,30,40), limits = c(30,47)) +
         scale_colour_manual(values = MyPalette) +
         annotate("rect", xmin=-Inf, xmax=palb_recommendations[1], ymax=Inf, ymin=-Inf, alpha = .2) + 
         annotate("rect", xmin=palb_recommendations[2], xmax=Inf, ymax=Inf, ymin=-Inf, alpha = .2) + 
         theme_bw() +
         theme(legend.position="bottom", legend.title = element_blank(), axis.text.x = element_text(size=6), axis.title = element_text(size=8), plot.title = element_text(size=9))
-
+      
       lay <- rbind(c(1,1,2),
                    c(1,1,3),
                    c(1,1,4))
