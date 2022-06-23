@@ -11,7 +11,7 @@ hoitomuoto;Hoitomuoto;Treatment;0;;;;;treatment;Bernoulli;0
 munsiirre;Mun.siirre;Transplant;0;;;;;pmol/l;Bernoulli;0
 nesterajoitus;Nesterajoitus;Liquid;0;;;;;;Bernoulli;0
 verenpainelaakitys;Verenpainelaakitys;Antihypertensive;0;;;;;;Bernoulli;0
-verenrasvojenlaakitys;Verenrasvojen laakitys;Blood fat medication;100;;;;;;Bernoulli;0
+verenrasvojenlaakitys;Verenrasvojen laakitys;Blood lipid medication;100;;;;;;Bernoulli;0
 mielialalaakitys;Mielialalaakitys;Mielialalaakitys;0;;;;;;Bernoulli;0
 fosforinsitoja;Fosforinsitoja;Phosphate binder med.;100;0;1;;;;Bernoulli;0
 kaliuminsitoja;Kaliuminsitoja;Potassium binder med.;0;0;1;;;;Bernoulli;0

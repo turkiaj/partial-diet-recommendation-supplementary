@@ -187,7 +187,7 @@ table1 <- kable(pred_table_fat_epros, booktabs = T, row.names = NA, format = "la
   row_spec(phos_id,bold=TRUE) %>%
   row_spec(pot_id,bold=TRUE)
 
-table1
+#table1
 
 table1 %>% save_kable(file = "tables/nutrient_table.pdf", keep_tex = TRUE)
 ```
@@ -227,7 +227,7 @@ table2 <- kable(medication_table, booktabs = T, row.names = NA, format = "latex"
   kable_styling(latex_options = "HOLD_position") %>%
   row_spec(0,bold=TRUE)
 
-table2
+#table2
 
 table2 %>% save_kable(file = "tables/personinfo_table.pdf", keep_tex = TRUE)
 ```
