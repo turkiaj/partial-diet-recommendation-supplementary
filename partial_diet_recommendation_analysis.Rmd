@@ -864,14 +864,15 @@ knitr::include_graphics("figures/treatment_level_reaction_correlations.pdf")
 ```{r, include=TRUE, fig.align="center", fig.cap=c("Correlation plot of matrix $C_b$ that includes the estimated within-model and cross-model correlations of personal effects"), echo=FALSE}
 knitr::include_graphics("figures/subject_level_reaction_correlations.pdf")
 ```
+
 ```{r, top_treatment_correlations, eval=TRUE, cache=TRUE, echo=FALSE}
 C_cross_g.df <- readRDS("dialysis_effect_correlations_df.rds")
 
 effect_cor.df <- data.frame(matrix(ncol = 3, nrow = 0), row.names = NULL)
 
-for (x in 1:dim(C_cross.df)[1])
+for (x in 1:dim(C_cross_g.df)[1])
 {
-  for (y in 1:dim(C_cross.df)[2])
+  for (y in 1:dim(C_cross_g.df)[2])
   {
     eff <- C_cross_g.df[x,y]
     from <- colnames(C_cross_g.df)[x]
@@ -920,23 +921,25 @@ kable(rbind(top_pot_correlations, top_pho_correlations), "latex", escape = T, bo
     kable_styling(latex_options = "HOLD_position") %>%
     kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
     add_header_above(c("Treatment-level effects of nutrients" = 2, " " = 1), escape = F) %>%
-    row_spec(0,bold=TRUE) %>%
-    save_kable(file = "tables/treatment_pot_and_pho_effect_correlations.pdf", keep_tex = TRUE)
+    row_spec(0,bold=TRUE)
+  
+  #    save_kable(file = "tables/treatment_pot_and_pho_effect_correlations.pdf", keep_tex = TRUE)
 
 ```
 
+
 ```{r, top_subject_correlations, eval=TRUE, cache=TRUE, echo=FALSE}
-C_cross.df <- readRDS("subject_effect_correlations_df.rds")
+C_cross_s.df <- readRDS("subject_effect_correlations_df.rds")
 
 effect_cor.df <- data.frame(matrix(ncol = 3, nrow = 0), row.names = NULL)
 
-for (x in 1:dim(C_cross.df)[1])
+for (x in 1:dim(C_cross_s.df)[1])
 {
-  for (y in 1:dim(C_cross.df)[2])
+  for (y in 1:dim(C_cross_s.df)[2])
   {
-    eff <- C_cross.df[x,y]
-    from <- colnames(C_cross.df)[x]
-    to <- rownames(C_cross.df)[y]
+    eff <- C_cross_s.df[x,y]
+    from <- colnames(C_cross_s.df)[x]
+    to <- rownames(C_cross_s.df)[y]
     
     effect_cor.df <- rbind(effect_cor.df, c(from,to,round(eff,3),abs(eff)))
   }
@@ -982,8 +985,9 @@ kable(rbind(top_pot_correlations, top_pho_correlations), "latex", escape = T, bo
     kable_styling(latex_options = "HOLD_position") %>%
     kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
     add_header_above(c("Personal effects of nutrients" = 2, " " = 1), escape = F) %>%
-    row_spec(0,bold=TRUE) %>%
-    save_kable(file = "tables/subject_pot_and_pho_effect_correlations.pdf", keep_tex = TRUE)
+    row_spec(0,bold=TRUE)
+
+#    save_kable(file = "tables/subject_pot_and_pho_effect_correlations.pdf", keep_tex = TRUE)
 
 ```
 
@@ -1816,7 +1820,7 @@ colnames(personal_targets) <- c("person_id", "pk_lower_limit", "fppi_lower_limit
 ```
 
 
-```{r reasoning_plot_ridges, fig.height=8.5, fig.width=8, cache=TRUE,echo=FALSE, message=FALSE, warning=FALSE,fig.cap="Figure shows personal recommendations of potassium and phosphorous intake ($\\hat{Q}^{min}-\\hat{Q}^{max}$) as result of Algorithm (1) with predictive distributions of $\\hat{Q}$ in the background. In each row gives a numeric label of patient and type of patient's dialysis treatment (HD = hospital hemodialysis, HHD = home hemodialysis, PD = peritoneal dialysis). Personal recommendations are given for patients whose resulting concentrations levels could be predicted either over 90\\% or 80\\% probability. For the patients that did not receive confident enough personal recommendation reasoning of failure is indicated. Three right-most panels show the estimated concentrations matching the recommended intake. In these panels, grey bars indicate the estimated concentration without the effect of potassium and phosphorous intake, $\\mu_{q0}$. All blue bars indicate the range of concentration that is resulted over the required $P^{max} > 80\\%$ confidence by modifying potassium and phosphorous intake. The best exact probabilities are shown with percentage figures. Red bars indicate that even best concentration estimation has $P^{max} < 80\\%$ confidence and personal recommendations are not given for these patients. For all the concentrations a maximum reached confidence $P^{max}_m$ is reported, except for patients 22,23, and 29 only maximum overall confidence $P^{max}$ is reported. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)."}
+```{r reasoning_plot_ridges, fig.height=8.5, fig.width=8, cache=TRUE,echo=FALSE, message=FALSE, warning=FALSE,fig.cap="The figure shows in two left-most panels personal recommendations of potassium and phosphorous intake ($\\hat{Q}^{min}-\\hat{Q}^{max}$) from Algorithm (1) with predictive distributions of $\\hat{Q}$ in the background. Each row gives a numeric label of the patient and the type of patient's dialysis treatment (HD = hospital hemodialysis, HHD = home hemodialysis, PD = peritoneal dialysis). Personal recommendations are given for those patients whose resulting plasma concentration levels could be predicted in either over 90\\% or 80\\% probability. Three right-most panels show the estimated concentrations that match the recommended intake. In these panels, grey bars indicate the estimated concentration without the effect of potassium and phosphorous intake, $\\mu_{q0}$. Blue bars indicate the range of concentration that is resulted by modifying potassium and phosphorous intake. It is required that these simulated concentrations stay within the personal target ranges denoted with vertical black lines. The light blue bar indicates satisfying this requirement in $P^{max} > 80\\%$ confidence and dark blue $P^{max} > 90\\%$ confidence. The best exact probabilities $P^{max}_m$ are shown with percentage figures. Red bars indicate that even the best concentration estimation has $P^{max} < 80\\%$ confidence and personal recommendations are not given for these patients. For these patients, the red and blue bars show the whole reachable ranges. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)"}
 
 library(ggridges)
 library(ggplot2)
