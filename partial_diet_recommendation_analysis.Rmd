@@ -700,7 +700,7 @@ mse_table <- rbind(mv3c2, mv3c1)
 mse_table[,2:5] <- round(as.numeric(mse_table[,2:5]),3)
 
 kable(mse_table, "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3,align="lrrrr",
-  caption = "Personal graphical models with different reaction model candidates are evaluated with NRMSE for each modelled concentration and average model error.",
+  caption = "Supplementary Table S1: Comparison of model candidates. Personal graphical models with different reaction model candidates are evaluated with NRMSE for each modeled concentration and average model error.",
   col.names = c("Reaction model", "P-K", "fP-Pi", "P-Alb", "average error")) %>%
   add_header_above(c(" " = 1, "NRMSE" = 4), escape = F) %>%
   kable_styling(latex_options = "HOLD_position") %>%
@@ -1350,15 +1350,56 @@ table2 %>% save_kable(file = "tables/variation_of_nutrition_effects2.pdf", keep_
 ```
 
 Supplementary Table S4: Nutrition effect magnitudes from nutrients and other modeled features $(j = 1,\dots,22)$ to blood concentrations $(i = 1,\dots,3)$ for analyzed patients $(p = 1,\dots,37)$ in all three additive levels of the model. General effects ($\hat{\beta}_{ij}$) are shown to vary between patients in home hemodialysis, hospital hemodialysis, and peritoneal dialysis. First column of each dialysis type (avg) shows typical effect of the treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk}, k = 1,\dots,3$) that can further vary personally. Minimum and maximum of these personal effects are shown within each treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk} + \hat{b}_{ijp}$). The table is sorted in decreasing order of between-treatment variation ($\hat{\sigma}_g$) and all the estimates include their 90\%-credible intervals.
-
 ```{r full_effects_table2, eval=TRUE, include=TRUE, fig.align="center", out.height="\\textheight", out.width="100%", echo=FALSE}
 knitr::include_graphics("tables/variation_of_nutrition_effects1.pdf")
 ```
 
-Supplementary Table S4: Nutrition effect magnitudes from nutrients and other modeled features $(j = 1,\dots,22)$ to blood concentrations $(i = 1,\dots,3)$ for analyzed patients $(p = 1,\dots,37)$ in all three additive levels of the model. General effects ($\hat{\beta}_{ij}$) are shown to vary between patients in home hemodialysis, hospital hemodialysis, and peritoneal dialysis. First column of each dialysis type (avg) shows typical effect of the treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk}, k = 1,\dots,3$) that can further vary personally. Minimum and maximum of these personal effects are shown within each treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk} + \hat{b}_{ijp}$). The table is sorted in decreasing order of between-treatment variation ($\hat{\sigma}_g$) and all the estimates include their 90\%-credible intervals (table continues).
-
+Supplementary Table S4 (continued)
 ```{r full_effects_table3, eval=TRUE, include=TRUE, fig.align="center", out.height="\\textheight", out.width="100%", echo=FALSE}
 knitr::include_graphics("tables/variation_of_nutrition_effects2.pdf")
+```
+
+```{r top_effect_summary,echo=FALSE, cache=TRUE}
+library(dplyr)
+
+effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
+
+# Most varying effect between patients regardless the treatment
+
+effect_summary$sigma_b <- as.numeric(effect_summary$sigma_b)
+effect_summary$personal_effect <- as.numeric(effect_summary$personal_effect)
+
+top_effect_summary <- effect_summary %>%
+  group_by(effect) %>% 
+  mutate(personal_max = personal_effect[which.max(personal_effect)]) %>% 
+  mutate(personal_min = personal_effect[which.min(personal_effect)]) %>% 
+  mutate(personal_variation = personal_max - personal_min) %>% 
+  ungroup() %>%
+  arrange(desc(personal_variation)) %>%
+  select(effect, personal_min, personal_max,personal_variation) %>%
+  distinct()
+
+# - pretty name lookup
+all_effects <- expand.grid(predictor = assumedpredictors_fat_epros$Name, target = assumedtargets$Name)
+all_descs <- expand.grid(predictor = assumedpredictors_fat_epros$Description, target = assumedtargets$Description)
+effect_desc.df <- data.frame(effect <- paste0(all_effects$predictor,"_",all_effects$target), row.names = NULL)
+effect_desc.df$desc <- paste0(effect <- paste0(all_descs$predictor," -> ",all_descs$target))
+effect_desc.df$nutrient <- all_descs$predictor
+effect_desc.df$concentration <- all_descs$target
+colnames(effect_desc.df) <- c("effect", "effect_description", "nutrient", "concentration")
+
+top_effect_summary <- top_effect_summary %>% inner_join(effect_desc.df, by = "effect")
+
+```
+
+\newpage
+Supplementary Table S5: Table shows 20 effects that have highest variation between patients by comparing minimum and maximum of effect strength expected values.
+```{r top_effect_summary_table,echo=FALSE, cache=TRUE}
+kable(top_effect_summary[1:20, c(5,2,3)], "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3, col.names = c("Effect", "Min", "Max")) %>%
+    kable_styling(latex_options = "HOLD_position") %>%
+    kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
+    add_header_above(c(" " = 1, "Expected personal effect strength" = 2), escape = F) %>%
+    row_spec(0,bold=TRUE)
 ```
 
 ```{r recommendation_overview_simulation, eval=FALSE,echo=FALSE, message=FALSE}
