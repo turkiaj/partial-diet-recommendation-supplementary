@@ -314,6 +314,34 @@ palb_p <- ggplot() +
 p <- grid.arrange(pk_k_plot, pk_p_plot, fppi_k_plot, fppi_p_plot, palb_k, palb_p, nrow = 3, ncol=2, padding=0)
 #ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
 ```
+
+```{r test_correlations, eval = FALSE}
+
+fig_protepros <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE)
+
+fig_protgkg <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=protgkg), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=protgkg, color=potilas), size=0.4, show.legend = FALSE) 
+
+fig_pufa <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=pufa, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=pufa, color=potilas), size=0.4, show.legend = FALSE)
+
+fig_pufaepros <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=pufaepros, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=pufaepros, color=potilas), size=0.4, show.legend = FALSE)
+
+p <- grid.arrange(fig_protepros, fig_protgkg, fig_pufaepros, fig_pufa, nrow = 2, ncol=2, padding=0)
+
+lm(palb ~ protgkg, dialysis) # 1.975
+lm(palb ~ protepros, dialysis) # 0.146
+lm(palb ~ pufa, dialysis) # 0.02345
+lm(palb ~ pufaepros, dialysis) # -0.08943
+
+```
+
 Aim of this analysis is to find such personal levels of potassium and phosphorous intakes that keep all these concentrations in their normal levels marked with white regions, if possible. 
 
 # Development of nutrition reaction model
@@ -1121,7 +1149,7 @@ saveRDS(effect_summary, "patient_summary/two_level_effect_summary.rds")
 
 # Overview of nutritional effects
 
-```{r effect_summary_table, eval=TRUE, cache=TRUE, echo=FALSE}
+```{r effect_summary_table, eval=TRUE, cache=FALSE, echo=FALSE}
 library(dplyr)
 
 effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
@@ -1300,7 +1328,7 @@ kable(pot_pho_effects.df[c(3:4,5,8:16)], "latex", escape = F, booktabs = T, row.
 
 Following tables include all the estimated nutrition effects in general, dialysis treatment and personal levels.  
 
-```{r full_effects_table, cache=TRUE, echo=FALSE}
+```{r full_effects_table, cache=FALSE, echo=FALSE}
 # kable(two_level_effects_table.df[2:14], "latex", booktabs = T, row.names = FALSE, digits = 2,align="lrrrrrrrrrrrr",
 #   caption = "Variation of nutrition effects between different dialysis treatments and between patients within the same treatment.",
 #   col.names = c("Effect", "General effect", "between treatments", "within treatments", "avg", "min", "max", "avg", "min", "max", "avg", "min", "max")) %>%
@@ -1359,7 +1387,7 @@ Supplementary Table S4 (continued)
 knitr::include_graphics("tables/variation_of_nutrition_effects2.pdf")
 ```
 
-```{r top_effect_summary,echo=FALSE, cache=TRUE}
+```{r top_effect_summary,echo=FALSE, cache=FALSE}
 library(dplyr)
 
 effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")

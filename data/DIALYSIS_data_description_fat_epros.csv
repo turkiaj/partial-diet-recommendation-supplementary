@@ -71,8 +71,8 @@ pufa;Pufa;Polyunsaturated Fatty Acids;100;0;500;;;g/d;Gaussian;1
 sakkaroosi;Sakkaroosi;Sacrose;0;0;1000;;;g/d;Gaussian;0
 kuitu;Kuitu, kokonais;Fiber;100;0;1000;;;g/d;Gaussian;0
 dvit;D-vit.;Vitamin D;100;0;1000;;;ug/d;Gaussian;0
-natrium;Natrium;Natrium;100;0;10000;;;mg/d;Gaussian;0
-kalsium;Ca;Calsium;100;0;5000;;;mg/d;Gaussian;0
+natrium;Natrium;Sodium;100;0;10000;;;mg/d;Gaussian;0
+kalsium;Ca;Calcium;100;0;5000;;;mg/d;Gaussian;0
 kalium;Kalium;Potassium;100;0;5000;;;mg/d;Gaussian;0
 suola;Suola;Salt;100;0;20000;;;mg/d;Gaussian;0
 fosfori;Fosfori;Phosphorous;100;0;2000;;;mg/d;Gaussian;0
