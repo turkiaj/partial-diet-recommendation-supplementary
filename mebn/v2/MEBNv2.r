@@ -800,10 +800,9 @@ mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex, poin
     int_mode <- mebn.getmode(int_draws[[parname]])
     ModelSummary$intmean <- round(int_mode, 5)
     
-    parname <- paste0("beta[",targetindex,"]")
-    fixef_draws <- rstan::extract(fit, pars = parname)
-    fixef_mode <- mebn.getmode(fixef_draws[[parname]])
-    ModelSummary$fixef <- round(fixef_mode, 5)
+    params <- grep(paste0("beta\\[",targetindex,","), rownames(ms$summary), value = TRUE)
+    fixef_draws <- rstan::extract(fit, pars = params)
+    ModelSummary$fixef <- unlist(lapply(fixef_draws, mebn.getmode))
     
   }
   
