@@ -5,6 +5,14 @@
 # Jari Turkia
 #
 
+mebn.getmode <- function(v) {
+  uniqv <- unique(v)
+  m <- uniqv[which.max(tabulate(match(v, uniqv)))]
+  
+  return(m)
+}
+
+##################################################
 
 mebn.get_personal_target_guidelines <- function(personal_info,patient_in_dialysis)
 {
@@ -85,9 +93,6 @@ mebn.get_personal_target_guidelines <- function(personal_info,patient_in_dialysi
     
   return(personal_limits)
 }
-
-
-##################################################
   
 ##################################################
 
@@ -764,7 +769,7 @@ mebn.localsummary_from_multivariate <- function(fit, targetindex)
 
 ##################################################
 
-mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex)
+mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex, point_est = "mean")
 {
   #draws <- extract(fit)
   
@@ -787,6 +792,20 @@ mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex)
                            ranef2_sd_lCI  <- round(ms$summary[startsWith(rownames(ms$summary), paste0("sigma_b_s[",targetindex,",")),],5)[,4]
                            ranef2_sd_uCI  <- round(ms$summary[startsWith(rownames(ms$summary), paste0("sigma_b_s[",targetindex,",")),],5)[,5]
                          })
+  
+  if (point_est == "mode") {
+    
+    parname <- paste0("beta_Intercept[",targetindex,"]")
+    int_draws <- rstan::extract(fit, pars = parname)
+    int_mode <- mebn.getmode(int_draws[[parname]])
+    ModelSummary$intmean <- round(int_mode, 5)
+    
+    parname <- paste0("beta[",targetindex,"]")
+    fixef_draws <- rstan::extract(fit, pars = parname)
+    fixef_mode <- mebn.getmode(fixef_draws[[parname]])
+    ModelSummary$fixef <- round(fixef_mode, 5)
+    
+  }
   
   # This is missing from the cross-correlation model
   
@@ -843,38 +862,62 @@ mebn.personal_effects_from_multivariate <- function(fit, targetindex, person_id)
 
 ##################################################
 
-mebn.adjusted_effects_from_multivariate <- function(fit, targetindex, person_id, group_id)
+mebn.adjusted_effects_from_multivariate <- function(fit, targetindex, person_id, group_id, point_est = "mean")
 {
   # Get full hierarchy of effects until the given level
-
-    #  mean      se_mean         sd          10%         90%     n_eff      Rhat
-    ms <- rstan::summary(fit, pars=c(paste0("g"), paste0("group_effect")), probs=c(0.05, 0.95), na.rm = TRUE)
+  
+  #  mean      se_mean         sd          10%         90%     n_eff      Rhat
+  ms <- rstan::summary(fit, pars=c(paste0("g"), paste0("group_effect")), probs=c(0.05, 0.95), na.rm = TRUE)
+  
+  ModelSummary1 <- within(list(),
+                          {
+                            g       <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),1], 5)
+                            g_lCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),4], 5)
+                            g_uCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),5], 5)
+                            group_effect         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),1], 5)
+                            group_effect_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),4], 5)
+                            group_effect_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),5], 5)
+                          })
+  
+  if (point_est == "mode") {
     
-    ModelSummary1 <- within(list(),
-                           {
-                             g       <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),1], 5)
-                             g_lCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),4], 5)
-                             g_uCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),5], 5)
-                             group_effect         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),1], 5)
-                             group_effect_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),4], 5)
-                             group_effect_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),5], 5)
-                           })
+    params <- grep(paste0("g\\[",group_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+    g_draws <- rstan::extract(fit, pars = params)
+    ModelSummary1$g <- unlist(lapply(g_draws, mebn.getmode))
     
-    #  mean      se_mean         sd          10%         90%     n_eff      Rhat
-    ms <- rstan::summary(fit, pars=c(paste0("b"), paste0("personal_effect")), probs=c(0.05, 0.95), na.rm = TRUE)
+    params <- grep(paste0("group_effect\\[",group_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+    group_effect_draws <- rstan::extract(fit, pars = params)
+    ModelSummary1$group_effect <- unlist(lapply(group_effect_draws, mebn.getmode))
     
-    ModelSummary2 <- within(list(),
-                           {
-                             b       <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),1], 5)
-                             b_lCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),4], 5)
-                             b_uCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),5], 5)
-                             personal_effect         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),1], 5)
-                             personal_effect_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),4], 5)
-                             personal_effect_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),5], 5)
-                           })
-
-    ModelSummary <- append(ModelSummary1,ModelSummary2)  
-        
+  }
+  
+  #  mean      se_mean         sd          10%         90%     n_eff      Rhat
+  ms <- rstan::summary(fit, pars=c(paste0("b"), paste0("personal_effect")), probs=c(0.05, 0.95), na.rm = TRUE)
+  
+  ModelSummary2 <- within(list(),
+                          {
+                            b       <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),1], 5)
+                            b_lCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),4], 5)
+                            b_uCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),5], 5)
+                            personal_effect         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),1], 5)
+                            personal_effect_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),4], 5)
+                            personal_effect_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),5], 5)
+                          })
+  
+  if (point_est == "mode") {
+    
+    params <- grep(paste0("b\\[",person_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+    b_draws <- rstan::extract(fit, pars = params)
+    ModelSummary2$b <- unlist(lapply(b_draws, mebn.getmode))
+    
+    params <- grep(paste0("personal_effect\\[",person_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+    personal_effect_draws <- rstan::extract(fit, pars = params)
+    ModelSummary2$personal_effect <- unlist(lapply(personal_effect_draws, mebn.getmode))
+    
+  }
+  
+  ModelSummary <- append(ModelSummary1,ModelSummary2)  
+  
   return(ModelSummary)
 }
 
@@ -2302,7 +2345,7 @@ mebn.extract_personal_graph_from_mv <- function(person_id, reaction_graph, perso
 
 ##################################################
 
-mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, adjusted_model_dir, predictor_columns, target_variables, multivariate_modeldir, normalized_personal_data, original_personal_data, original_personal_concentrations, datadesc)
+mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, adjusted_model_dir, predictor_columns, target_variables, multivariate_modeldir, normalized_personal_data, original_personal_data, original_personal_concentrations, datadesc, effect_point_est = "mean")
 {
   library(igraph)
   library(rstan)
@@ -2342,7 +2385,7 @@ mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, a
     reaction_graph <- set_vertex_attr(reaction_graph, "personal_intercept", target_vertex, int_samples_file)
 
     # extract adjusted effects from the local distribution
-    pe <- mebn.adjusted_effects_from_multivariate(localfit, c, person_id, group_id)
+    pe <- mebn.adjusted_effects_from_multivariate(localfit, c, person_id, group_id, effect_point_est)
     
     # - Loop through betas for current target
     predictor_names <- as.vector(predictor_columns$Name)
@@ -2353,7 +2396,7 @@ mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, a
       pred_column <- predictor_columns[p,]
 
       # - amounts of variations at different levels. these are general effects.
-      localsummary <- mebn.localsummary_from_two_level_multivariate(localfit, c)
+      localsummary <- mebn.localsummary_from_two_level_multivariate(localfit, c, effect_point_est)
       
       # add general effect
       reaction_graph <- reaction_graph + vertex(paste0(predictor_name, "_", target_name), 
