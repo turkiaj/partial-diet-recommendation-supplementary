@@ -1019,7 +1019,7 @@ kable(rbind(top_pot_correlations, top_pho_correlations), "latex", escape = T, bo
 
 ```
 
-```{r, eval=FALSE, echo=FALSE}
+```{r extract_personal_generative_models, eval=FALSE, echo=FALSE}
 source("mebn/v2/MEBNv2.r")
 
 # Extract generative models for patients with data from personal grouping
@@ -1033,7 +1033,7 @@ target_variables <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi
 assumedpredictors <- assumedpredictors_fat_epros
 
 # - output personal generative models (graphml + rv samples) in this dir
-graph_dir <- "graphs/mv3_cross_two_levels/effect_point_est_mode/"
+graph_dir <- "graphs/mv3_cross_two_levels/with_mode/"
 
 # Loop through patients and produce the models
 
@@ -1046,7 +1046,7 @@ patients <- levels(dialysis$potilas)
 
 #for (person_id in 1:length(patients)) {
 
-for (person_id in 10:10) {
+for (person_id in 1:37) {
 
   # - initial graph structure
   initial_graph <- mebn.fully_connected_bipartite_graph(datadesc)
@@ -1078,16 +1078,17 @@ for (person_id in 10:10) {
   
   group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
   
-  personal_graph <- mebn.extract_multilevel_graph(person_id, group_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc, effect_point_est = "mode")
+  personal_graph <- mebn.extract_multilevel_graph(person_id, group_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
   
 }
 
 ```
 
-```{r, echo=FALSE, eval=FALSE}
+```{r build_two_level_effect_summary, echo=FALSE, eval=FALSE}
 
 library(igraph)
-graph_dir <- "graphs/mv3_cross_two_levels/"
+#graph_dir <- "graphs/mv3_cross_two_levels/"
+graph_dir <- "graphs/mv3_cross_two_levels/with_mode/"
 
 # - collect personal statistics in this data frame
 effect_summary <- data.frame(matrix(ncol = 17, nrow = 0), row.names = NULL)
@@ -1118,6 +1119,7 @@ for (person_id in 1:37) {
       personal_effects <- c(person_id,
                             effect_name,
                             nodes[paste0(effect_name)]$value,
+                            nodes[paste0(effect_name)]$mode,
                             nodes[paste0(effect_name)]$value_lCI,
                             nodes[paste0(effect_name)]$value_uCI,
                             nodes[paste0("sigma_g_", effect_name)]$value,
@@ -1128,9 +1130,11 @@ for (person_id in 1:37) {
                             nodes[paste0("sigma_b_", effect_name)]$value_uCI,
                             treatment,
                             nodes[paste0("personal_", effect_name)]$group,
+                            nodes[paste0("personal_", effect_name)]$group_mode,
                             nodes[paste0("personal_", effect_name)]$group_lCI,
                             nodes[paste0("personal_", effect_name)]$group_uCI,
                             nodes[paste0("personal_", effect_name)]$value,
+                            nodes[paste0("personal_", effect_name)]$mode,
                             nodes[paste0("personal_", effect_name)]$value_lCI,
                             nodes[paste0("personal_", effect_name)]$value_uCI)
   
@@ -1141,9 +1145,9 @@ for (person_id in 1:37) {
 
 }
 
-colnames(effect_summary) <- c("person_id", "effect", "general_effect", "general_effect_lCI", "general_effect_uCI", "sigma_g", "sigma_g_lCI", "sigma_g_uCI", "sigma_b", "sigma_b_lCI", "sigma_b_uCI", "treatment_group", "group_effect", "group_effect_lCI", "group_effect_uCI", "personal_effect","personal_effect_lCI","personal_effect_uCI")
+colnames(effect_summary) <- c("person_id", "effect", "general_effect", "general_effect_mode", "general_effect_lCI", "general_effect_uCI", "sigma_g", "sigma_g_lCI", "sigma_g_uCI", "sigma_b", "sigma_b_lCI", "sigma_b_uCI", "treatment_group", "group_effect", "group_effect_mode", "group_effect_lCI", "group_effect_uCI", "personal_effect", "personal_effect_mode","personal_effect_lCI","personal_effect_uCI")
 
-saveRDS(effect_summary, "patient_summary/two_level_effect_summary.rds")
+saveRDS(effect_summary, "patient_summary/two_level_effect_summary_with_mode.rds")
 
 ```
 
@@ -1152,12 +1156,13 @@ saveRDS(effect_summary, "patient_summary/two_level_effect_summary.rds")
 ```{r effect_summary_table, eval=TRUE, cache=FALSE, echo=FALSE}
 library(dplyr)
 
-effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
+effect_summary <- readRDS("patient_summary/two_level_effect_summary_with_mode.rds")
 
 general_summary <- effect_summary %>% 
   arrange(effect) %>%
   select(effect, 
          general_effect, 
+         general_effect_mode, 
          general_effect_lCI, 
          general_effect_uCI, 
          sigma_g, 
@@ -1169,6 +1174,7 @@ general_summary <- effect_summary %>%
   group_by(effect) %>%
   dplyr::summarise(
                 general_effect = as.numeric(dplyr::first(general_effect)),
+                general_effect_mode = as.numeric(dplyr::first(general_effect_mode)),
                 general_effect_lCI = as.numeric(dplyr::first(general_effect_lCI)),
                 general_effect_uCI = as.numeric(dplyr::first(general_effect_uCI)),
                 sigma_g = as.numeric(dplyr::first(sigma_g)),
@@ -1184,21 +1190,26 @@ KHD_summary <- effect_summary %>%
   select(effect, 
          treatment_group,
          group_effect,
+         group_effect_mode,
          group_effect_lCI,
          group_effect_uCI,
          personal_effect,
+         personal_effect_mode,
          personal_effect_lCI,
          personal_effect_uCI) %>%
   filter(treatment_group == "KHD") %>%
   group_by(effect) %>%
   dplyr::summarise(
                 KHD_effect = as.numeric(dplyr::first(group_effect)),
+                KHD_effect_mode = as.numeric(dplyr::first(group_effect_mode)),
                 KHD_effect_lCI = as.numeric(dplyr::first(group_effect_lCI)),
                 KHD_effect_uCI = as.numeric(dplyr::first(group_effect_uCI)),
                 min_personal_KHD = min(as.numeric(personal_effect)),
+                min_personal_mode_KHD = min(as.numeric(personal_effect_mode)),
                 min_personal_KHD_lCI = as.numeric(personal_effect_lCI[which.min(as.numeric(personal_effect))]),
                 min_personal_KHD_uCI = as.numeric(personal_effect_uCI[which.min(as.numeric(personal_effect))]),
                 max_personal_KHD = max(as.numeric(personal_effect)),
+                max_personal_mode_KHD = max(as.numeric(personal_effect_mode)),
                 max_personal_KHD_lCI = as.numeric(personal_effect_lCI[which.max(as.numeric(personal_effect))]),
                 max_personal_KHD_uCI = as.numeric(personal_effect_uCI[which.max(as.numeric(personal_effect))])
   )
@@ -1208,21 +1219,26 @@ OHD_summary <- effect_summary %>%
   select(effect, 
          treatment_group,
          group_effect,
+         group_effect_mode,
          group_effect_lCI,
          group_effect_uCI,
          personal_effect,
+         personal_effect_mode,
          personal_effect_lCI,
          personal_effect_uCI) %>%
   filter(treatment_group == "OHD") %>%
   group_by(effect) %>%
   dplyr::summarise(
                 OHD_effect = as.numeric(dplyr::first(group_effect)),
+                OHD_effect_mode = as.numeric(dplyr::first(group_effect_mode)),
                 OHD_effect_lCI = as.numeric(dplyr::first(group_effect_lCI)),
                 OHD_effect_uCI = as.numeric(dplyr::first(group_effect_uCI)),
                 min_personal_OHD = min(as.numeric(personal_effect)),
+                min_personal_mode_OHD = min(as.numeric(personal_effect_mode)),
                 min_personal_OHD_lCI = as.numeric(personal_effect_lCI[which.min(as.numeric(personal_effect))]),
                 min_personal_OHD_uCI = as.numeric(personal_effect_uCI[which.min(as.numeric(personal_effect))]),
                 max_personal_OHD = max(as.numeric(personal_effect)),
+                max_personal_mode_OHD = max(as.numeric(personal_effect_mode)),
                 max_personal_OHD_lCI = as.numeric(personal_effect_lCI[which.max(as.numeric(personal_effect))]),
                 max_personal_OHD_uCI = as.numeric(personal_effect_uCI[which.max(as.numeric(personal_effect))])
   )
@@ -1232,21 +1248,26 @@ PD_summary <- effect_summary %>%
   select(effect, 
          treatment_group,
          group_effect,
+         group_effect_mode,
          group_effect_lCI,
          group_effect_uCI,
          personal_effect,
+         personal_effect_mode,
          personal_effect_lCI,
          personal_effect_uCI) %>%
   filter(treatment_group == "PD") %>%
   group_by(effect) %>%
   dplyr::summarise(
                 PD_effect = as.numeric(dplyr::first(group_effect)),
+                PD_effect_mode = as.numeric(dplyr::first(group_effect_mode)),
                 PD_effect_lCI = as.numeric(dplyr::first(group_effect_lCI)),
                 PD_effect_uCI = as.numeric(dplyr::first(group_effect_uCI)),
                 min_personal_PD = min(as.numeric(personal_effect)),
+                min_personal_mode_PD = min(as.numeric(personal_effect_mode)),
                 min_personal_PD_lCI = as.numeric(personal_effect_lCI[which.min(as.numeric(personal_effect))]),
                 min_personal_PD_uCI = as.numeric(personal_effect_uCI[which.min(as.numeric(personal_effect))]),
                 max_personal_PD = max(as.numeric(personal_effect)),
+                max_personal_mode_PD = max(as.numeric(personal_effect_mode)),
                 max_personal_PD_lCI = as.numeric(personal_effect_lCI[which.max(as.numeric(personal_effect))]),
                 max_personal_PD_uCI = as.numeric(personal_effect_uCI[which.max(as.numeric(personal_effect))])
   )
@@ -1276,7 +1297,10 @@ two_level_effects_table.df$effect_description <- full_summary$effect_description
 two_level_effects_table.df$nutrient <- full_summary$nutrient
 two_level_effects_table.df$concentration <- full_summary$concentration
 
-two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),"\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
+#two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),"\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
+
+two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),", ",format(round(full_summary$general_effect_mode,2), nsmall=2), "\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
+
 two_level_effects_table.df$sigma_g <- linebreak(paste0(format(round(full_summary$sigma_g,2), nsmall = 2),"\n$\\left[",format(round(full_summary$sigma_g_lCI,2), nsmall = 2),"; ",format(round(full_summary$sigma_g_uCI,2), nsmall = 2),"\\right]$"), align = "c")
 two_level_effects_table.df$sigma_b <- linebreak(paste0(format(round(full_summary$sigma_b,2), nsmall = 2),"\n$\\left[",format(round(full_summary$sigma_b_lCI,2), nsmall = 2),"; ",format(round(full_summary$sigma_b_uCI,2), nsmall = 2),"\\right]$"), align = "c")
 
@@ -1377,6 +1401,62 @@ table2 %>% save_kable(file = "tables/variation_of_nutrition_effects2.pdf", keep_
 
 ```
 
+```{r plot_effect_density,eval=FALSE}
+library(rstan)
+library(ggplot2)
+
+# TODO: Make an easily parameterized inspection tool
+
+twolvl_fit <- mebn.get_localfit(target_name = "pk_fppi_palb", local_model_cache = "models/BLMM_gamma_mv_cross/two_levels/")
+
+person_id <- 10
+subject_code <- "2303"
+
+group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
+
+group_id <- 3
+
+protgkg <- 13  # assumedpredictors_fat_epros$Name index
+fosfori <- 17
+
+palb <- 3
+
+beta <- rstan::extract(twolvl_fit, pars = c(paste0("beta[",palb,",",fosfori,"]")))
+group_effect <- rstan::extract(twolvl_fit, pars = c(paste0("group_effect[",group_id,",",palb,",",fosfori,"]")))
+personal_effect <- rstan::extract(twolvl_fit, pars = c(paste0("personal_effect[",person_id,",",palb,",",fosfori,"]")))
+
+dens1 <- as.data.frame(beta$`beta[3,17]`)
+colnames(dens1) <- c("fosfori-palb")
+dens1$level <- "general"
+
+dens2 <- as.data.frame(group_effect$`group_effect[3,3,17]`)
+colnames(dens2) <- c("fosfori-palb")
+dens2$level <- "PD_avg"
+
+dens3 <- as.data.frame(personal_effect$`personal_effect[10,3,17]`)
+colnames(dens3) <- c("fosfori-palb")
+dens3$level <- "personal"
+
+dens <- rbind(dens1,dens2,dens3)
+
+m1 <- mean(dens1$`fosfori-palb`) # -3.36
+m2 <- median(dens1$`fosfori-palb`) # -1.96
+
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+m3 <- getmode(dens1$`fosfori-palb`) # 1.84
+
+ggplot(dens, aes(x=`fosfori-palb`, fill=level)) +
+  geom_density(alpha=.25) +
+  geom_vline(xintercept = m1, color = "red") +
+  geom_vline(xintercept = m2, color = "green") +
+  geom_vline(xintercept = m3, color = "blue") 
+```
+
+
 Supplementary Table S4: Nutrition effect magnitudes from nutrients and other modeled features $(j = 1,\dots,22)$ to blood concentrations $(i = 1,\dots,3)$ for analyzed patients $(p = 1,\dots,37)$ in all three additive levels of the model. General effects ($\hat{\beta}_{ij}$) are shown to vary between patients in home hemodialysis, hospital hemodialysis, and peritoneal dialysis. First column of each dialysis type (avg) shows typical effect of the treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk}, k = 1,\dots,3$) that can further vary personally. Minimum and maximum of these personal effects are shown within each treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk} + \hat{b}_{ijp}$). The table is sorted in decreasing order of between-treatment variation ($\hat{\sigma}_g$) and all the estimates include their 90\%-credible intervals.
 ```{r full_effects_table2, eval=TRUE, include=TRUE, fig.align="center", out.height="\\textheight", out.width="100%", echo=FALSE}
 knitr::include_graphics("tables/variation_of_nutrition_effects1.pdf")
@@ -1390,7 +1470,7 @@ knitr::include_graphics("tables/variation_of_nutrition_effects2.pdf")
 ```{r top_effect_summary,echo=FALSE, cache=FALSE}
 library(dplyr)
 
-effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
+effect_summary <- readRDS("patient_summary/two_level_effect_summary_with_mode.rds")
 
 # Most varying effect between patients regardless the treatment
 
@@ -1437,10 +1517,10 @@ library(gridExtra)
 library(dplyr)
   
 # Query parameters
-simulation <- "X50_B50_A50_I50"
+simulation <- "X50_B50_A50_I50_twolevel"
 
 # - data parameters
-graph_dir <- "graphs/mv3_cross_two_levels/"
+graph_dir <- "graphs/mv3_cross_two_levels/with_mode/"
 
 # - evidence / query parameters
 #pk_recommendations <- c(3.4,4.7)
@@ -1465,7 +1545,9 @@ patient_summary <- data.frame(matrix(ncol = 25, nrow = 0), row.names = NULL)
 
 colnames(patient_summary) <- c("person_id", "subject_code", "treatment", "accepted", "max_conc_prob", "max_pk_prob", "max_fppi_prob", "max_palb_prob", "potassium_low", "phosphorous_low", "potassium_high", "phosphorous_high","pk_min","pk_max", "fppi_min", "fppi_max", "palb_min", "palb_max", "estimated_pk","true_pk","estimated_fppi","true_fppi","estimated_palb","true_palb","recommandation_probability")
 
-for (person_id in 1:37) {
+for (person_id in 1:1) {
+  
+  #person_id <- 10
   
   print(paste0("Simulating patient ", person_id))
 
@@ -1524,6 +1606,8 @@ for (person_id in 1:37) {
   }
   
   colnames(personal_repeats) <- c("estimated_pk","true_pk","estimated_fppi","true_fppi","estimated_palb","true_palb")
+  
+  #source("mebn/v2/MEBNv2.r")
 
   intake_model <- mebn.Query(reaction_graph = personal_graph,
                            graph_dir = personal_model_dir,

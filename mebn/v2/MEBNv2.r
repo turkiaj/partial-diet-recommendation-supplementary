@@ -5,7 +5,7 @@
 # Jari Turkia
 #
 
-mebn.getmode <- function(v) {
+mebn.get_mode <- function(v) {
   uniqv <- unique(v)
   m <- uniqv[which.max(tabulate(match(v, uniqv)))]
   
@@ -769,20 +769,25 @@ mebn.localsummary_from_multivariate <- function(fit, targetindex)
 
 ##################################################
 
-mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex, point_est = "mean")
+mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex)
 {
-  #draws <- extract(fit)
-  
   #  mean      se_mean         sd          10%         90%     n_eff      Rhat
   ms <- summary(fit, pars=c(paste0("beta_Intercept"), paste0("beta"), paste0("sigma_b_g"), paste0("sigma_b_s")), probs=c(0.5, 0.95), na.rm = TRUE)
-  #ms <- summary(fit, pars=c(paste0("beta_Intercept"), paste0("beta"), paste0("sigma_b"), paste0("sigma_e")), probs=c(0.10, 0.90), na.rm = TRUE)
+  
+  # for mode
+  int_parname <- paste0("beta_Intercept[",targetindex,"]")
+  int_draws <- rstan::extract(fit, pars = int_parname)
+  fixef_params <- grep(paste0("beta\\[",targetindex,","), rownames(ms$summary), value = TRUE)
+  fixef_draws <- rstan::extract(fit, pars = fixef_params)
   
   ModelSummary <- within(list(),
                          {
                            intmean       <- round(ms$summary[rownames(ms$summary) %in% paste0("beta_Intercept[",targetindex,"]"),],5)[1]
+                           intmode       <- round(mebn.get_mode(int_draws[[int_parname]]), 5)
                            intmean_lCI   <- round(ms$summary[rownames(ms$summary) %in% paste0("beta_Intercept[",targetindex,"]"),],5)[4]
                            intmean_uCI   <- round(ms$summary[rownames(ms$summary) %in% paste0("beta_Intercept[",targetindex,"]"),],5)[5]
                            fixef         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("beta[",targetindex,",")),],5)[,1]
+                           fixef_mode    <- round(unlist(lapply(fixef_draws, mebn.get_mode)), 5)
                            fixef_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("beta[",targetindex,",")),],5)[,4]
                            fixef_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("beta[",targetindex,",")),],5)[,5]
                            ranef1_sd      <- round(ms$summary[startsWith(rownames(ms$summary), paste0("sigma_b_g[",targetindex,",")),],5)[,1]
@@ -792,19 +797,6 @@ mebn.localsummary_from_two_level_multivariate <- function(fit, targetindex, poin
                            ranef2_sd_lCI  <- round(ms$summary[startsWith(rownames(ms$summary), paste0("sigma_b_s[",targetindex,",")),],5)[,4]
                            ranef2_sd_uCI  <- round(ms$summary[startsWith(rownames(ms$summary), paste0("sigma_b_s[",targetindex,",")),],5)[,5]
                          })
-  
-  if (point_est == "mode") {
-    
-    parname <- paste0("beta_Intercept[",targetindex,"]")
-    int_draws <- rstan::extract(fit, pars = parname)
-    int_mode <- mebn.getmode(int_draws[[parname]])
-    ModelSummary$intmean <- round(int_mode, 5)
-    
-    params <- grep(paste0("beta\\[",targetindex,","), rownames(ms$summary), value = TRUE)
-    fixef_draws <- rstan::extract(fit, pars = params)
-    ModelSummary$fixef <- unlist(lapply(fixef_draws, mebn.getmode))
-    
-  }
   
   # This is missing from the cross-correlation model
   
@@ -861,59 +853,51 @@ mebn.personal_effects_from_multivariate <- function(fit, targetindex, person_id)
 
 ##################################################
 
-mebn.adjusted_effects_from_multivariate <- function(fit, targetindex, person_id, group_id, point_est = "mean")
+mebn.adjusted_effects_from_multivariate <- function(fit, targetindex, person_id, group_id)
 {
   # Get full hierarchy of effects until the given level
   
   #  mean      se_mean         sd          10%         90%     n_eff      Rhat
   ms <- rstan::summary(fit, pars=c(paste0("g"), paste0("group_effect")), probs=c(0.05, 0.95), na.rm = TRUE)
+
+  # for mode
+  g_params <- grep(paste0("g\\[",group_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+  g_draws <- rstan::extract(fit, pars = g_params)
+  group_effect_params <- grep(paste0("group_effect\\[",group_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+  group_effect_draws <- rstan::extract(fit, pars = group_effect_params)
   
   ModelSummary1 <- within(list(),
                           {
                             g       <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),1], 5)
+                            g_mode  <- round(unlist(lapply(g_draws, mebn.get_mode)),5)
                             g_lCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),4], 5)
                             g_uCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("g[",group_id,",", targetindex, ",")),5], 5)
                             group_effect         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),1], 5)
+                            group_effect_mode    <- round(unlist(lapply(group_effect_draws, mebn.get_mode)), 5)
                             group_effect_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),4], 5)
                             group_effect_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("group_effect[",group_id,",", targetindex, ",")),5], 5)
                           })
   
-  if (point_est == "mode") {
-    
-    params <- grep(paste0("g\\[",group_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
-    g_draws <- rstan::extract(fit, pars = params)
-    ModelSummary1$g <- unlist(lapply(g_draws, mebn.getmode))
-    
-    params <- grep(paste0("group_effect\\[",group_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
-    group_effect_draws <- rstan::extract(fit, pars = params)
-    ModelSummary1$group_effect <- unlist(lapply(group_effect_draws, mebn.getmode))
-    
-  }
-  
   #  mean      se_mean         sd          10%         90%     n_eff      Rhat
   ms <- rstan::summary(fit, pars=c(paste0("b"), paste0("personal_effect")), probs=c(0.05, 0.95), na.rm = TRUE)
+
+  # for mode
+  b_params <- grep(paste0("b\\[",person_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+  b_draws <- rstan::extract(fit, pars = b_params)
+  personal_effect_params <- grep(paste0("personal_effect\\[",person_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
+  personal_effect_draws <- rstan::extract(fit, pars = personal_effect_params)
   
   ModelSummary2 <- within(list(),
                           {
                             b       <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),1], 5)
+                            b_mode  <- round(unlist(lapply(b_draws, mebn.get_mode)), 5)
                             b_lCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),4], 5)
                             b_uCI   <- round(ms$summary[startsWith(rownames(ms$summary),paste0("b[",person_id,",", targetindex, ",")),5], 5)
                             personal_effect         <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),1], 5)
+                            personal_effect_mode    <- round(unlist(lapply(personal_effect_draws, mebn.get_mode)), 5)
                             personal_effect_lCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),4], 5)
                             personal_effect_uCI     <- round(ms$summary[startsWith(rownames(ms$summary), paste0("personal_effect[",person_id,",", targetindex, ",")),5], 5)
                           })
-  
-  if (point_est == "mode") {
-    
-    params <- grep(paste0("b\\[",person_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
-    b_draws <- rstan::extract(fit, pars = params)
-    ModelSummary2$b <- unlist(lapply(b_draws, mebn.getmode))
-    
-    params <- grep(paste0("personal_effect\\[",person_id,",", targetindex, ","), rownames(ms$summary), value = TRUE)
-    personal_effect_draws <- rstan::extract(fit, pars = params)
-    ModelSummary2$personal_effect <- unlist(lapply(personal_effect_draws, mebn.getmode))
-    
-  }
   
   ModelSummary <- append(ModelSummary1,ModelSummary2)  
   
@@ -2344,7 +2328,7 @@ mebn.extract_personal_graph_from_mv <- function(person_id, reaction_graph, perso
 
 ##################################################
 
-mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, adjusted_model_dir, predictor_columns, target_variables, multivariate_modeldir, normalized_personal_data, original_personal_data, original_personal_concentrations, datadesc, effect_point_est = "mean")
+mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, adjusted_model_dir, predictor_columns, target_variables, multivariate_modeldir, normalized_personal_data, original_personal_data, original_personal_concentrations, datadesc)
 {
   library(igraph)
   library(rstan)
@@ -2384,7 +2368,7 @@ mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, a
     reaction_graph <- set_vertex_attr(reaction_graph, "personal_intercept", target_vertex, int_samples_file)
 
     # extract adjusted effects from the local distribution
-    pe <- mebn.adjusted_effects_from_multivariate(localfit, c, person_id, group_id, effect_point_est)
+    pe <- mebn.adjusted_effects_from_multivariate(localfit, c, person_id, group_id)
     
     # - Loop through betas for current target
     predictor_names <- as.vector(predictor_columns$Name)
@@ -2395,13 +2379,14 @@ mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, a
       pred_column <- predictor_columns[p,]
 
       # - amounts of variations at different levels. these are general effects.
-      localsummary <- mebn.localsummary_from_two_level_multivariate(localfit, c, effect_point_est)
+      localsummary <- mebn.localsummary_from_two_level_multivariate(localfit, c)
       
       # add general effect
       reaction_graph <- reaction_graph + vertex(paste0(predictor_name, "_", target_name), 
                                                 label=paste0(predictor_name, "_", target_name), 
                                                 type="general_effect", color="#AAAAAA", 
-                                                value = localsummary$fixef[p], 
+                                                value = localsummary$fixef[p],
+                                                mode = localsummary$fixef_mode[p],
                                                 value_lCI = localsummary$fixef_lCI[p],
                                                 value_uCI = localsummary$fixef_uCI[p],
                                                 shape = "circle")
@@ -2517,9 +2502,11 @@ mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, a
                                                 type="personal", color="#AAAAAA", 
                                                 distribution = paste0(effect_name,".rds"),
                                                 value = pe$personal_effect[p], 
+                                                mode = pe$personal_effect_mode[p],
                                                 value_lCI = pe$personal_effect_lCI[p],
                                                 value_uCI = pe$personal_effect_uCI[p],
                                                 group = pe$group_effect[p],
+                                                group_mode = pe$group_effect_mode[p],
                                                 group_lCI = pe$group_effect_lCI[p],
                                                 group_uCI = pe$group_effect_uCI[p],
                                                 shape = "circle")
@@ -2530,7 +2517,8 @@ mebn.extract_multilevel_graph <- function(person_id, group_id, reaction_graph, a
       reaction_graph <- reaction_graph + vertex(paste0("b_", predictor_name, "_", target_name), 
                                                 label=paste0("b_", predictor_name), 
                                                 type="b", color="#AAAAAA", 
-                                                value = pe$b[p], 
+                                                value = pe$b[p],
+                                                mode = pe$b_mode[p],
                                                 value_lCI = pe$b_lCI[p],
                                                 value_uCI = pe$b_uCI[p],
                                                 shape = "circle")
@@ -3463,6 +3451,10 @@ mebn.GetBeta <- function(reaction_graph, graph_dir, point_est = "mean")
       {
         beta_point[t,p] <- mean(beta_samples[t,p,])   
       }
+      else if (point_est == "mode")
+      {
+        beta_point[t,p] <- mebn.getmode(beta_samples[t,p,])   
+      }
       else if (point_est == "CI5")
       {
         beta_point[t,p] <- quantile(beta_samples[t,p,], probs=0.05)   
@@ -3550,6 +3542,10 @@ mebn.Query <- function(reaction_graph, graph_dir, query, queried_nodes, proposal
       else if (beta_point_est == "mean")
       {
         beta_point[t,p] <- mean(beta_samples[t,p,])   
+      } 
+      else if (beta_point_est == "mode")
+      {
+        beta_point[t,p] <- mebn.get_mode(beta_samples[t,p,])   
       } 
       else if (beta_point_est == "CI5")
       {
@@ -3676,7 +3672,8 @@ mebn.Query <- function(reaction_graph, graph_dir, query, queried_nodes, proposal
   rstan_options (auto_write=TRUE)
   options (mc.cores=parallel::detectCores ())
   
-  query_result <- stan(file=stan_model_file, warmup = 1000, iter=5000, chains=4, chain_id=1L, algorithm="NUTS", control = list(adapt_delta = 0.99, max_treedepth = 15), data=params, seed=483892929)
+  query_result <- stan(file=stan_model_file, warmup = 1000, iter=2000, chains=1, chain_id=1L, algorithm="NUTS", control = list(adapt_delta = 0.99, max_treedepth = 15), data=params, seed=483892929)
+  #query_result <- stan(file=stan_model_file, warmup = 1000, iter=5000, chains=4, chain_id=1L, algorithm="NUTS", control = list(adapt_delta = 0.99, max_treedepth = 15), data=params, seed=483892929)
   
   #m <- stan_model(file=stan_model_file)
   #query_result <- optimizing(m, data=params, seed=483892929, verbose=TRUE, init = 0)
