@@ -592,6 +592,11 @@ write.graph(dialdiet_gamma_mv3,
 Finally, we consider also the effect of dialysis treatment type as new level of grouping in data. This allows us to estimate average effects of nutrition for each treatment type and then also personal effects within those treatments.
 
 ```{r graph_with_gamma_qr_mvcross_two_levels, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+pk_fppi_palb_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
+no_holdout <- rep(0, nrow(dialysis_imputed))
+
+initial_graph <- mebn.fully_connected_bipartite_graph(datadesc_fat_epros)
+
 dialysis_imputed <- readRDS("data/DIALYSIS_imputed_palb.rds")
 
 # add the dialysis treatment type as a grouping factor
@@ -1033,7 +1038,7 @@ target_variables <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi
 assumedpredictors <- assumedpredictors_fat_epros
 
 # - output personal generative models (graphml + rv samples) in this dir
-graph_dir <- "graphs/mv3_cross_two_levels/with_mode/"
+graph_dir <- "graphs/mv3_cross_two_levels/"
 
 # Loop through patients and produce the models
 
@@ -1087,8 +1092,7 @@ for (person_id in 1:37) {
 ```{r build_two_level_effect_summary, echo=FALSE, eval=FALSE}
 
 library(igraph)
-#graph_dir <- "graphs/mv3_cross_two_levels/"
-graph_dir <- "graphs/mv3_cross_two_levels/with_mode/"
+graph_dir <- "graphs/mv3_cross_two_levels/"
 
 # - collect personal statistics in this data frame
 effect_summary <- data.frame(matrix(ncol = 17, nrow = 0), row.names = NULL)
@@ -1147,7 +1151,7 @@ for (person_id in 1:37) {
 
 colnames(effect_summary) <- c("person_id", "effect", "general_effect", "general_effect_mode", "general_effect_lCI", "general_effect_uCI", "sigma_g", "sigma_g_lCI", "sigma_g_uCI", "sigma_b", "sigma_b_lCI", "sigma_b_uCI", "treatment_group", "group_effect", "group_effect_mode", "group_effect_lCI", "group_effect_uCI", "personal_effect", "personal_effect_mode","personal_effect_lCI","personal_effect_uCI")
 
-saveRDS(effect_summary, "patient_summary/two_level_effect_summary_with_mode.rds")
+saveRDS(effect_summary, "patient_summary/two_level_effect_summary.rds")
 
 ```
 
@@ -1156,7 +1160,7 @@ saveRDS(effect_summary, "patient_summary/two_level_effect_summary_with_mode.rds"
 ```{r effect_summary_table, eval=TRUE, cache=FALSE, echo=FALSE}
 library(dplyr)
 
-effect_summary <- readRDS("patient_summary/two_level_effect_summary_with_mode.rds")
+effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
 
 general_summary <- effect_summary %>% 
   arrange(effect) %>%
@@ -1470,7 +1474,7 @@ knitr::include_graphics("tables/variation_of_nutrition_effects2.pdf")
 ```{r top_effect_summary,echo=FALSE, cache=FALSE}
 library(dplyr)
 
-effect_summary <- readRDS("patient_summary/two_level_effect_summary_with_mode.rds")
+effect_summary <- readRDS("patient_summary/two_level_effect_summary.rds")
 
 # Most varying effect between patients regardless the treatment
 
@@ -1517,10 +1521,10 @@ library(gridExtra)
 library(dplyr)
   
 # Query parameters
-simulation <- "X50_B50_A50_I50_twolevel"
+simulation <- "X50_B50_A50_I50"
 
 # - data parameters
-graph_dir <- "graphs/mv3_cross_two_levels/with_mode/"
+graph_dir <- "graphs/mv3_cross_two_levels/"
 
 # - evidence / query parameters
 #pk_recommendations <- c(3.4,4.7)
@@ -1545,9 +1549,7 @@ patient_summary <- data.frame(matrix(ncol = 25, nrow = 0), row.names = NULL)
 
 colnames(patient_summary) <- c("person_id", "subject_code", "treatment", "accepted", "max_conc_prob", "max_pk_prob", "max_fppi_prob", "max_palb_prob", "potassium_low", "phosphorous_low", "potassium_high", "phosphorous_high","pk_min","pk_max", "fppi_min", "fppi_max", "palb_min", "palb_max", "estimated_pk","true_pk","estimated_fppi","true_fppi","estimated_palb","true_palb","recommandation_probability")
 
-for (person_id in 1:1) {
-  
-  #person_id <- 10
+for (person_id in 1:37) {
   
   print(paste0("Simulating patient ", person_id))
 
@@ -1866,7 +1868,7 @@ simulation <- "X50_B50_A50_I50"
 #simulation <- "X5_B5_A50_I50"
 #simulation <- "X95_B95_A50_I50"
 
-recom_summary <- readRDS(paste0("patient_summary/simulation",simulation,"/recommendation_summary_posterior_params.rds"))
+recom_summary <- readRDS(paste0("patient_summary/mv3_cross_two_levels/simulation",simulation,"/recommendation_summary_posterior_params.rds"))
 
 # Calculate concentration level that matches the recommendation
 
@@ -1880,9 +1882,9 @@ for (person_id in 1:37) {
   conf <- as.numeric(recom_summary[recom_summary$person_id == person_id,]$accepted_recommandation_probability)
   low_conf <- 1 - conf
   
-  personal_recommendation <- readRDS(paste0("patient_summary/simulation",simulation,"/overviews/personal_recommendation_",person_id,".rds"))
+  personal_recommendation <- readRDS(paste0("patient_summary/mv3_cross_two_levels/simulation",simulation,"/overviews/personal_recommendation_",person_id,".rds"))
   
-  concs_file <- paste0("patient_summary/simulation",simulation,"/details/concs_minmax_",person_id,".rds")
+  concs_file <- paste0("patient_summary/mv3_cross_two_levels/simulation",simulation,"/details/concs_minmax_",person_id,".rds")
   
   if (file.exists(concs_file))
   {
@@ -1998,7 +2000,7 @@ accepted_intake.df <- data.frame(matrix(ncol = 9, nrow = 0), row.names = NULL)
 
 for (person_id in 1:37) {
   
-  personal_intake_file <- paste0("./patient_summary/simulation",simulation,"/details/accepted_intake_",person_id,".rds")
+  personal_intake_file <- paste0("./patient_summary/mv3_cross_two_levels/simulation",simulation,"/details/accepted_intake_",person_id,".rds")
   
   if (file.exists(personal_intake_file)) {
     
