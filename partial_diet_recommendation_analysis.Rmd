@@ -629,6 +629,79 @@ write.graph(dialdiet_gamma_mv3_two_level,
 
 Here we evaluate the model's ability to repeat the measured observations with normalized root mean square error (NRMSE) and compare how adding the dialysis treatment as an explicit hierarchical layer in the model affects this error. We also asses the model's performance with visual posterior predictive check by comparing samples from the model with measured values. This would give away possible bias in the model.
 
+
+```{r extract_personal_generative_models, eval=FALSE, echo=FALSE}
+source("mebn/v2/MEBNv2.r")
+
+# Extract generative models for patients with data from personal grouping
+
+# - latent parameters from this model
+latent_parameter_modeldir <- "models/BLMM_gamma_mv_cross/two_levels"
+latent_parameter_modeldir <- "models/BLMM_gamma_qr_multivariate3/imputed_palb/"
+
+# - use these predictors and targets
+datadesc <- datadesc_fat_epros
+target_variables <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
+assumedpredictors <- assumedpredictors_fat_epros
+
+# - output personal generative models (graphml + rv samples) in this dir
+graph_dir <- "graphs/mv3_cross_two_levels/"
+graph_dir <- "graphs/mv3_cross/"
+
+# Loop through patients and produce the models
+
+dialysis <- readRDS("data/DIALYSIS_imputed_palb.rds")
+
+# add the dialysis treatment type as a grouping factor
+dialysis$hoitoryhma <- as.factor(dialysis$hoitomuoto)
+
+patients <- levels(dialysis$potilas)
+
+#for (person_id in 1:length(patients)) {
+
+for (person_id in 1:37) {
+
+  # - initial graph structure
+  initial_graph <- mebn.fully_connected_bipartite_graph(datadesc)
+  
+  # - pick the estimated latent variables for all the persons
+  local_distributions <- target_variables
+  local_distributions$modelcache <- latent_parameter_modeldir
+  
+  # - get personal data, normalized and original
+  
+  # - statistics for the nutrition levels are calculated from normalized data (as it was in the likelihood estimation)
+  predictors <- nrow(assumedpredictors)
+  normalized_input <- sapply(1:predictors, mebn.scale_gaussians, data = dialysis, datadesc = assumedpredictors, log_transform_ln = FALSE)
+  normalized_input_df <- as.data.frame(normalized_input)
+  
+  # - pick rows for the selected person
+  subject_code <- levels(dialysis$potilas)[person_id]
+  personal_data_df <- cbind(dialysis$potilas, normalized_input_df)
+  personal_data_df <- personal_data_df[personal_data_df$`dialysis$potilas` == subject_code,]
+  personal_data <- as.matrix(subset(personal_data_df, select = -c(`dialysis$potilas`)))
+  
+  # - store also these original stats in graph
+  personal_data_org <- subset(dialysis[dialysis$potilas == subject_code,], select = as.vector(assumedpredictors$Name))
+  personal_concentrations_org <- subset(dialysis[dialysis$potilas == subject_code,], select = as.vector(assumedtargets$Name))
+  
+  personal_model_dir <- paste0(graph_dir, person_id)
+  
+  # Generate a personal graph in directory
+  
+  group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
+  
+  # one-level model
+  personal_graph <- mebn.extract_personal_graph_from_mv(person_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
+
+  # two-level model
+  #personal_graph <- mebn.extract_multilevel_graph(person_id, group_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
+  
+}
+
+```
+
+
 ```{r simulated_MSE, eval=FALSE, echo=FALSE}
 library(igraph)
 source("mebn/v2/MEBNv2.r")
@@ -1021,71 +1094,6 @@ kable(rbind(top_pot_correlations, top_pho_correlations), "latex", escape = T, bo
     row_spec(0,bold=TRUE)
 
 #    save_kable(file = "tables/subject_pot_and_pho_effect_correlations.pdf", keep_tex = TRUE)
-
-```
-
-```{r extract_personal_generative_models, eval=FALSE, echo=FALSE}
-source("mebn/v2/MEBNv2.r")
-
-# Extract generative models for patients with data from personal grouping
-
-# - latent parameters from this model
-latent_parameter_modeldir <- "models/BLMM_gamma_mv_cross/two_levels"
-
-# - use these predictors and targets
-datadesc <- datadesc_fat_epros
-target_variables <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
-assumedpredictors <- assumedpredictors_fat_epros
-
-# - output personal generative models (graphml + rv samples) in this dir
-graph_dir <- "graphs/mv3_cross_two_levels/"
-
-# Loop through patients and produce the models
-
-dialysis <- readRDS("data/DIALYSIS_imputed_palb.rds")
-
-# add the dialysis treatment type as a grouping factor
-dialysis$hoitoryhma <- as.factor(dialysis$hoitomuoto)
-
-patients <- levels(dialysis$potilas)
-
-#for (person_id in 1:length(patients)) {
-
-for (person_id in 1:37) {
-
-  # - initial graph structure
-  initial_graph <- mebn.fully_connected_bipartite_graph(datadesc)
-  
-  # - pick the estimated latent variables for all the persons
-  local_distributions <- target_variables
-  local_distributions$modelcache <- latent_parameter_modeldir
-  
-  # - get personal data, normalized and original
-  
-  # - statistics for the nutrition levels are calculated from normalized data (as it was in the likelihood estimation)
-  predictors <- nrow(assumedpredictors)
-  normalized_input <- sapply(1:predictors, mebn.scale_gaussians, data = dialysis, datadesc = assumedpredictors, log_transform_ln = FALSE)
-  normalized_input_df <- as.data.frame(normalized_input)
-  
-  # - pick rows for the selected person
-  subject_code <- levels(dialysis$potilas)[person_id]
-  personal_data_df <- cbind(dialysis$potilas, normalized_input_df)
-  personal_data_df <- personal_data_df[personal_data_df$`dialysis$potilas` == subject_code,]
-  personal_data <- as.matrix(subset(personal_data_df, select = -c(`dialysis$potilas`)))
-  
-  # - store also these original stats in graph
-  personal_data_org <- subset(dialysis[dialysis$potilas == subject_code,], select = as.vector(assumedpredictors$Name))
-  personal_concentrations_org <- subset(dialysis[dialysis$potilas == subject_code,], select = as.vector(assumedtargets$Name))
-  
-  personal_model_dir <- paste0(graph_dir, person_id)
-  
-  # Generate a personal graph in directory
-  
-  group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
-  
-  personal_graph <- mebn.extract_multilevel_graph(person_id, group_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
-  
-}
 
 ```
 
@@ -2014,11 +2022,15 @@ for (person_id in 1:37) {
     {
       accepted_intake.df <- rbind(accepted_intake.df, cbind(person_id, recommendations.df))
     } else {
-      accepted_intake.df <- rbind(accepted_intake.df, c(person_id,0,0,0,0,0,0,0,0))
+      emptyrow <- as.data.frame(matrix(c(person_id,0,0,0,0,0,0,0,0), ncol = 9, nrow = 1))
+      colnames(emptyrow) <- c("person_id","proposal", "pk_prob", "fppi_prob", "palb_prob", "lowest_conc_prob", "iid_prob", "pot", "pho")  
+      accepted_intake.df <- rbind(accepted_intake.df, emptyrow)
     }
 
   } else {
-    accepted_intake.df <- rbind(accepted_intake.df, c(person_id,0,0,0,0,0,0,0,0))
+    emptyrow <- as.data.frame(matrix(c(person_id,0,0,0,0,0,0,0,0), ncol = 9, nrow = 1))
+    colnames(emptyrow) <- c("person_id","proposal", "pk_prob", "fppi_prob", "palb_prob", "lowest_conc_prob", "iid_prob", "pot", "pho")  
+    accepted_intake.df <- rbind(accepted_intake.df, emptyrow)
   }
 }
 
