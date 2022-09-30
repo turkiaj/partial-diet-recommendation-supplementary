@@ -315,7 +315,7 @@ p <- grid.arrange(pk_k_plot, pk_p_plot, fppi_k_plot, fppi_p_plot, palb_k, palb_p
 #ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
 ```
 
-```{r test_correlations, eval = FALSE}
+```{r scatterplot_for_correlations, eval = FALSE, echo = FALSE}
 
 fig_protepros <- ggplot() +
   geom_point(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE) +
@@ -921,7 +921,6 @@ cplot <- ggcorrplot(C_cross.df, hc.order = FALSE, lab = FALSE, type="lower") +
     legend.text = element_text(size = 8),
     legend.position = "bottom",
     legend.title = element_blank(),
-    legend.key.size = 10,
     plot.margin = margin(t = 0,  # Top margin
                          r = 0,  # Right margin
                          b = 0,  # Bottom margin
@@ -930,7 +929,7 @@ cplot <- ggcorrplot(C_cross.df, hc.order = FALSE, lab = FALSE, type="lower") +
 ggplot2::geom_vline(xintercept = c(p,2*p), linetype="solid", color = "grey", size=1) +
 ggplot2::geom_hline(yintercept = c(p,2*p), linetype="solid", color = "grey", size=1)
 
-#ggsave(paste0("figures/treatment_level_reaction_correlations.pdf"), plot = cplot, width = 15, height = 15, scale = 0.7)
+ggsave(paste0("figures/treatment_level_reaction_correlations.pdf"), plot = cplot, width = 15, height = 15, scale = 0.7)
 
 ```
 ```{r, subject_effect_correlation_plot, fig.width=14, fig.out="100%", fig.align="left", eval=TRUE, cache=FALSE, echo=FALSE}
@@ -972,7 +971,7 @@ knitr::include_graphics("figures/treatment_level_reaction_correlations.pdf")
 knitr::include_graphics("figures/subject_level_reaction_correlations.pdf")
 ```
 
-```{r, top_treatment_correlations, eval=TRUE, cache=TRUE, echo=FALSE}
+```{r, top_treatment_correlations, eval=TRUE, cache=FALSE, echo=FALSE}
 C_cross_g.df <- readRDS("dialysis_effect_correlations_df.rds")
 
 effect_cor.df <- data.frame(matrix(ncol = 3, nrow = 0), row.names = NULL)
@@ -1035,7 +1034,7 @@ kable(rbind(top_pot_correlations, top_pho_correlations), "latex", escape = T, bo
 ```
 
 
-```{r, top_subject_correlations, eval=TRUE, cache=TRUE, echo=FALSE}
+```{r, top_subject_correlations, eval=TRUE, cache=FALSE, echo=FALSE}
 C_cross_s.df <- readRDS("subject_effect_correlations_df.rds")
 
 effect_cor.df <- data.frame(matrix(ncol = 3, nrow = 0), row.names = NULL)
@@ -1340,7 +1339,7 @@ two_level_effects_table.df <- two_level_effects_table.df[order(-two_level_effect
 
 ```
 
-```{r pot_pho_effects_only, cache=TRUE, echo=FALSE, eval=FALSE}
+```{r pot_pho_effects_only, cache=FALSE, echo=FALSE, eval=FALSE}
 
 # This table is used in the article
 
@@ -1364,7 +1363,6 @@ kable(pot_pho_effects.df[c(3:4,5,8:16)], "latex", escape = F, booktabs = T, row.
 ```
 
 Following tables include all the estimated nutrition effects in general, dialysis treatment and personal levels.  
-
 ```{r full_effects_table, cache=FALSE, echo=FALSE}
 # kable(two_level_effects_table.df[2:14], "latex", booktabs = T, row.names = FALSE, digits = 2,align="lrrrrrrrrrrrr",
 #   caption = "Variation of nutrition effects between different dialysis treatments and between patients within the same treatment.",
@@ -1378,7 +1376,7 @@ Following tables include all the estimated nutrition effects in general, dialysi
 # variations removed 
 #  caption = "",
 
-kabletable1 <- two_level_effects_table.df[1:33,c(3:4,5,8:16)]
+kabletable1 <- two_level_effects_table.df[1:32,c(3:4,5,8:16)]
 kabletable1$nutrient <- gsub("%", "\\\\%", kabletable1$nutrient)
 
 table1 <- kable(kabletable1, "latex", escape = F, booktabs = T, row.names = FALSE, digits = 2,align="llccccccccccc",
@@ -1395,7 +1393,7 @@ table1 <- kable(kabletable1, "latex", escape = F, booktabs = T, row.names = FALS
 
 table1 %>%  save_kable(file = "tables/variation_of_nutrition_effects1.pdf", keep_tex = TRUE)
 
-kabletable2 <- two_level_effects_table.df[34:66,c(3:4,5,8:16)]
+kabletable2 <- two_level_effects_table.df[33:66,c(3:4,5,8:16)]
 kabletable2$nutrient <- gsub("%", "\\\\%", kabletable2$nutrient)
 
 table2 <- kable(kabletable2, "latex", escape = F, booktabs = T, row.names = FALSE, digits = 2,align="llccccccccccc",
@@ -1413,63 +1411,6 @@ table2 <- kable(kabletable2, "latex", escape = F, booktabs = T, row.names = FALS
 table2 %>% save_kable(file = "tables/variation_of_nutrition_effects2.pdf", keep_tex = TRUE)
 
 ```
-
-```{r plot_effect_density,eval=FALSE}
-library(rstan)
-library(ggplot2)
-
-# TODO: Make an easily parameterized inspection tool
-
-twolvl_fit <- mebn.get_localfit(target_name = "pk_fppi_palb", local_model_cache = "models/BLMM_gamma_mv_cross/two_levels/")
-
-person_id <- 10
-subject_code <- "2303"
-
-group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
-
-group_id <- 3
-
-protgkg <- 13  # assumedpredictors_fat_epros$Name index
-fosfori <- 17
-
-palb <- 3
-
-beta <- rstan::extract(twolvl_fit, pars = c(paste0("beta[",palb,",",fosfori,"]")))
-group_effect <- rstan::extract(twolvl_fit, pars = c(paste0("group_effect[",group_id,",",palb,",",fosfori,"]")))
-personal_effect <- rstan::extract(twolvl_fit, pars = c(paste0("personal_effect[",person_id,",",palb,",",fosfori,"]")))
-
-dens1 <- as.data.frame(beta$`beta[3,17]`)
-colnames(dens1) <- c("fosfori-palb")
-dens1$level <- "general"
-
-dens2 <- as.data.frame(group_effect$`group_effect[3,3,17]`)
-colnames(dens2) <- c("fosfori-palb")
-dens2$level <- "PD_avg"
-
-dens3 <- as.data.frame(personal_effect$`personal_effect[10,3,17]`)
-colnames(dens3) <- c("fosfori-palb")
-dens3$level <- "personal"
-
-dens <- rbind(dens1,dens2,dens3)
-
-m1 <- mean(dens1$`fosfori-palb`) # -3.36
-m2 <- median(dens1$`fosfori-palb`) # -1.96
-
-getmode <- function(v) {
-   uniqv <- unique(v)
-   uniqv[which.max(tabulate(match(v, uniqv)))]
-}
-
-m3 <- getmode(dens1$`fosfori-palb`) # 1.84
-
-ggplot(dens, aes(x=`fosfori-palb`, fill=level)) +
-  geom_density(alpha=.25) +
-  geom_vline(xintercept = m1, color = "red") +
-  geom_vline(xintercept = m2, color = "green") +
-  geom_vline(xintercept = m3, color = "blue") 
-```
-
-
 Supplementary Table S4: Nutrition effect magnitudes from nutrients and other modeled features $(j = 1,\dots,22)$ to blood concentrations $(i = 1,\dots,3)$ for analyzed patients $(p = 1,\dots,37)$ in all three additive levels of the model. General effects ($\hat{\beta}_{ij}$) are shown to vary between patients in home hemodialysis, hospital hemodialysis, and peritoneal dialysis. First column of each dialysis type (avg) shows typical effect of the treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk}, k = 1,\dots,3$) that can further vary personally. Minimum and maximum of these personal effects are shown within each treatment ($\hat{\beta}_{ij} + \hat{g}_{ijk} + \hat{b}_{ijp}$). The table is sorted in decreasing order of between-treatment variation ($\hat{\sigma}_g$) and all the estimates include their 90\%-credible intervals.
 ```{r full_effects_table2, eval=TRUE, include=TRUE, fig.align="center", out.height="\\textheight", out.width="100%", echo=FALSE}
 knitr::include_graphics("tables/variation_of_nutrition_effects1.pdf")
@@ -1515,7 +1456,7 @@ top_effect_summary <- top_effect_summary %>% inner_join(effect_desc.df, by = "ef
 
 \newpage
 Supplementary Table S5: Table shows 20 effects that have highest variation between patients by comparing minimum and maximum of effect strength expected values.
-```{r top_effect_summary_table,echo=FALSE, cache=TRUE}
+```{r top_effect_summary_table,echo=FALSE, cache=FALSE}
 kable(top_effect_summary[1:20, c(5,2,3)], "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3, col.names = c("Effect", "Min", "Max")) %>%
     kable_styling(latex_options = "HOLD_position") %>%
     kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
@@ -1558,7 +1499,7 @@ patient_summary <- data.frame(matrix(ncol = 25, nrow = 0), row.names = NULL)
 
 colnames(patient_summary) <- c("person_id", "subject_code", "treatment", "accepted", "max_conc_prob", "max_pk_prob", "max_fppi_prob", "max_palb_prob", "potassium_low", "phosphorous_low", "potassium_high", "phosphorous_high","pk_min","pk_max", "fppi_min", "fppi_max", "palb_min", "palb_max", "estimated_pk","true_pk","estimated_fppi","true_fppi","estimated_palb","true_palb","recommandation_probability")
 
-for (person_id in 36:36) {
+for (person_id in 1:37) {
   
   print(paste0("Simulating patient ", person_id))
 
@@ -1784,8 +1725,6 @@ saveRDS(patient_summary, paste0("patient_summary/mv3_cross_two_levels/simulation
 
 ```
 
-# Overview of personal recommendations 
-
 ```{r personal_effect_summary,eval=TRUE,echo=FALSE,warning=FALSE,message=FALSE}
 library(igraph)
 graph_dir <- "graphs/mv3_cross_two_levels/"
@@ -1946,8 +1885,8 @@ for (person_id in 1:37) {
 colnames(personal_targets) <- c("person_id", "pk_lower_limit", "fppi_lower_limit", "palb_lower_limit", "pk_upper_limit", "fppi_upper_limit", "palb_upper_limit")
 ```
 
-
-```{r reasoning_plot_ridges, fig.height=8.5, fig.width=8, cache=TRUE,echo=FALSE, message=FALSE, warning=FALSE,fig.cap="The figure shows in two left-most panels personal recommendations of potassium and phosphorous intake ($\\hat{Q}^{min}-\\hat{Q}^{max}$) from Algorithm (1) with predictive distributions of $\\hat{Q}$ in the background. Each row gives a numeric label of the patient and the type of patient's dialysis treatment (HD = hospital hemodialysis, HHD = home hemodialysis, PD = peritoneal dialysis). Personal recommendations are given for those patients whose resulting plasma concentration levels could be predicted in either over 90\\% or 80\\% probability. Three right-most panels show the estimated concentrations that match the recommended intake. In these panels, grey bars indicate the estimated concentration without the effect of potassium and phosphorous intake, $\\mu_{q0}$. Blue bars indicate the range of concentration that is resulted by modifying potassium and phosphorous intake. It is required that these simulated concentrations stay within the personal target ranges denoted with vertical black lines. The light blue bar indicates satisfying this requirement in $P^{max} > 80\\%$ confidence and dark blue $P^{max} > 90\\%$ confidence. The best exact probabilities $P^{max}_m$ are shown with percentage figures. Red bars indicate that even the best concentration estimation has $P^{max} < 80\\%$ confidence and personal recommendations are not given for these patients. For these patients, the red and blue bars show the whole reachable ranges. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)"}
+# Overview of personal recommendations 
+```{r reasoning_plot_ridges, fig.height=8.5, fig.width=8, cache=FALSE,echo=FALSE, message=FALSE, warning=FALSE,fig.cap="The figure shows in two left-most panels personal recommendations of potassium and phosphorous intake ($\\hat{Q}^{min}-\\hat{Q}^{max}$) from Algorithm (1) with predictive distributions of $\\hat{Q}$ in the background. Each row gives a numeric label of the patient and the type of patient's dialysis treatment (HD = hospital hemodialysis, HHD = home hemodialysis, PD = peritoneal dialysis). Personal recommendations are given for those patients whose resulting plasma concentration levels could be predicted in either over 90\\% or 80\\% probability. Three right-most panels show the estimated concentrations that match the recommended intake. In these panels, grey bars indicate the estimated concentration without the effect of potassium and phosphorous intake, $\\mu_{q0}$. Blue bars indicate the range of concentration that is resulted by modifying potassium and phosphorous intake. It is required that these simulated concentrations stay within the personal target ranges denoted with vertical black lines. The best exact probabilities $P^{max}_m$ are shown with percentage figures. Red bars indicate that even the best concentration estimation has $P^{max} < 80\\%$ confidence and personal recommendations are not given for these patients. For these patients, the red and blue bars show the whole reachable ranges. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)"}
 
 library(ggridges)
 library(ggplot2)
@@ -2157,7 +2096,7 @@ ggsave(paste0("figures/recommendation_plot_X50_B50.pdf"), plot = recommendation_
 
 ## Personal recommendation for a patient
 
-```{r nuts_intake_method_figure, cache=TRUE, eval=TRUE, echo=FALSE,message=FALSE, warning=FALSE, fig.cap="Figure shows detailed intake recommendation for patient 10 from the previous recommendation table. The intake plot on the left shows the posterior samples of diet configurations that result concentrations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) to stay within their recommended limits. These levels are marked with vertical solid lines in the concentration panels. The black point in the middle of intake plot represents the patient's current potassium and phosphorous intake. Current concentrations matching this intake are shown with dashed vertical lines. Reported recommendation is shown with a rectangle that contains $95\\%$ of diet proposals that result recommended concentrations over $90\\%$ accuracy. Colouring of the rectangle sides match the concentration estimates in the right hand panels. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)."}
+```{r nuts_intake_method_figure, cache=FALSE, eval=TRUE, echo=FALSE,message=FALSE, warning=FALSE, fig.cap="Figure shows detailed intake recommendation for patient 10 from the previous recommendation table. The intake plot on the left shows the posterior samples of diet configurations that result concentrations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) to stay within their recommended limits. These levels are marked with vertical solid lines in the concentration panels. The black point in the middle of intake plot represents the patient's current potassium and phosphorous intake. Current concentrations matching this intake are shown with dashed vertical lines. Reported recommendation is shown with a rectangle that contains $95\\%$ of diet proposals that result recommended concentrations over $90\\%$ accuracy. Colouring of the rectangle sides match the concentration estimates in the right hand panels. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)."}
 library(ggplot2)
 library(gridExtra)
 library(ggrepel)
@@ -2355,3 +2294,57 @@ for (person_id in 36:36) {
 }
 ```
 
+```{r plot_effect_density,eval=FALSE,echo=FALSE}
+library(rstan)
+library(ggplot2)
+
+# This block can be used for inspecting the effect posteriors in detail
+
+twolvl_fit <- mebn.get_localfit(target_name = "pk_fppi_palb", local_model_cache = "models/BLMM_gamma_mv_cross/two_levels/")
+
+person_id <- 10
+subject_code <- "2303"
+
+group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
+
+group_id <- 3
+
+protgkg <- 13  # assumedpredictors_fat_epros$Name index
+fosfori <- 17
+
+palb <- 3
+
+beta <- rstan::extract(twolvl_fit, pars = c(paste0("beta[",palb,",",fosfori,"]")))
+group_effect <- rstan::extract(twolvl_fit, pars = c(paste0("group_effect[",group_id,",",palb,",",fosfori,"]")))
+personal_effect <- rstan::extract(twolvl_fit, pars = c(paste0("personal_effect[",person_id,",",palb,",",fosfori,"]")))
+
+dens1 <- as.data.frame(beta$`beta[3,17]`)
+colnames(dens1) <- c("fosfori-palb")
+dens1$level <- "general"
+
+dens2 <- as.data.frame(group_effect$`group_effect[3,3,17]`)
+colnames(dens2) <- c("fosfori-palb")
+dens2$level <- "PD_avg"
+
+dens3 <- as.data.frame(personal_effect$`personal_effect[10,3,17]`)
+colnames(dens3) <- c("fosfori-palb")
+dens3$level <- "personal"
+
+dens <- rbind(dens1,dens2,dens3)
+
+m1 <- mean(dens1$`fosfori-palb`) # -3.36
+m2 <- median(dens1$`fosfori-palb`) # -1.96
+
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+m3 <- getmode(dens1$`fosfori-palb`) # 1.84
+
+ggplot(dens, aes(x=`fosfori-palb`, fill=level)) +
+  geom_density(alpha=.25) +
+  geom_vline(xintercept = m1, color = "red") +
+  geom_vline(xintercept = m2, color = "green") +
+  geom_vline(xintercept = m3, color = "blue") 
+```
