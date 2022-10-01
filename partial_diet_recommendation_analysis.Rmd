@@ -315,33 +315,6 @@ p <- grid.arrange(pk_k_plot, pk_p_plot, fppi_k_plot, fppi_p_plot, palb_k, palb_p
 #ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
 ```
 
-```{r scatterplot_for_correlations, eval = FALSE, echo = FALSE}
-
-fig_protepros <- ggplot() +
-  geom_point(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE) +
-  geom_line(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE)
-
-fig_protgkg <- ggplot() +
-  geom_point(data=dialysis, aes(y = palb, x=protgkg), size=0.4, show.legend = FALSE) +
-  geom_line(data=dialysis, aes(y = palb, x=protgkg, color=potilas), size=0.4, show.legend = FALSE) 
-
-fig_pufa <- ggplot() +
-  geom_point(data=dialysis, aes(y = palb, x=pufa, color=potilas), size=0.4, show.legend = FALSE) +
-  geom_line(data=dialysis, aes(y = palb, x=pufa, color=potilas), size=0.4, show.legend = FALSE)
-
-fig_pufaepros <- ggplot() +
-  geom_point(data=dialysis, aes(y = palb, x=pufaepros, color=potilas), size=0.4, show.legend = FALSE) +
-  geom_line(data=dialysis, aes(y = palb, x=pufaepros, color=potilas), size=0.4, show.legend = FALSE)
-
-p <- grid.arrange(fig_protepros, fig_protgkg, fig_pufaepros, fig_pufa, nrow = 2, ncol=2, padding=0)
-
-lm(palb ~ protgkg, dialysis) # 1.975
-lm(palb ~ protepros, dialysis) # 0.146
-lm(palb ~ pufa, dialysis) # 0.02345
-lm(palb ~ pufaepros, dialysis) # -0.08943
-
-```
-
 Aim of this analysis is to find such personal levels of potassium and phosphorous intakes that keep all these concentrations in their normal levels marked with white regions, if possible. 
 
 # Development of nutrition reaction model
@@ -1309,9 +1282,10 @@ two_level_effects_table.df$effect_description <- full_summary$effect_description
 two_level_effects_table.df$nutrient <- full_summary$nutrient
 two_level_effects_table.df$concentration <- full_summary$concentration
 
-#two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),"\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
+two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),"\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
 
-two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),", ",format(round(full_summary$general_effect_mode,2), nsmall=2), "\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
+# - adds mode
+#two_level_effects_table.df$general_effect <- linebreak(paste0(format(round(full_summary$general_effect,2), nsmall=2),", ",format(round(full_summary$general_effect_mode,2), nsmall=2), "\n$\\left[",format(round(full_summary$general_effect_lCI,2), nsmall=2),"; ",format(round(full_summary$general_effect_uCI,2), nsmall=2),"\\right]$"), align = "c")
 
 two_level_effects_table.df$sigma_g <- linebreak(paste0(format(round(full_summary$sigma_g,2), nsmall = 2),"\n$\\left[",format(round(full_summary$sigma_g_lCI,2), nsmall = 2),"; ",format(round(full_summary$sigma_g_uCI,2), nsmall = 2),"\\right]$"), align = "c")
 two_level_effects_table.df$sigma_b <- linebreak(paste0(format(round(full_summary$sigma_b,2), nsmall = 2),"\n$\\left[",format(round(full_summary$sigma_b_lCI,2), nsmall = 2),"; ",format(round(full_summary$sigma_b_uCI,2), nsmall = 2),"\\right]$"), align = "c")
@@ -2298,9 +2272,16 @@ for (person_id in 36:36) {
 library(rstan)
 library(ggplot2)
 
+#      "verenrasvojenlaakitys" "diabeteslaakitys"      "aktdvit"               "fosforinsitoja"        "renavit"               "hhepros"               "rasvaepros"           
+# [8]  "mufaepros"             "pufaepros"             "protepros"             "safaepros"             "kuitu"                 "protgkg"               "sukupuoli"            
+# [15] "ekcalkg"               "kalsium"               "fosfori"               "kalium"                "suola"                 "natrium"               "vesi"                 
+# [22] "dvit"
+
+# assumedpredictors_fat_epros Name
+
 # This block can be used for inspecting the effect posteriors in detail
 
-twolvl_fit <- mebn.get_localfit(target_name = "pk_fppi_palb", local_model_cache = "models/BLMM_gamma_mv_cross/two_levels/")
+#twolvl_fit <- mebn.get_localfit(target_name = "pk_fppi_palb", local_model_cache = "models/BLMM_gamma_mv_cross/two_levels/")
 
 person_id <- 10
 subject_code <- "2303"
@@ -2308,43 +2289,82 @@ subject_code <- "2303"
 group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
 
 group_id <- 3
-
-protgkg <- 13  # assumedpredictors_fat_epros$Name index
-fosfori <- 17
-
+                              
+pred <- "pufaepros"
+idx <- which(assumedpredictors_fat_epros$Name == pred)
 palb <- 3
 
-beta <- rstan::extract(twolvl_fit, pars = c(paste0("beta[",palb,",",fosfori,"]")))
-group_effect <- rstan::extract(twolvl_fit, pars = c(paste0("group_effect[",group_id,",",palb,",",fosfori,"]")))
-personal_effect <- rstan::extract(twolvl_fit, pars = c(paste0("personal_effect[",person_id,",",palb,",",fosfori,"]")))
+beta <- rstan::extract(twolvl_fit, pars = c(paste0("beta[",palb,",",idx,"]")))
+group_effect <- rstan::extract(twolvl_fit, pars = c(paste0("group_effect[",group_id,",",palb,",",idx,"]")))
+personal_effect <- rstan::extract(twolvl_fit, pars = c(paste0("personal_effect[",person_id,",",palb,",",idx,"]")))
 
-dens1 <- as.data.frame(beta$`beta[3,17]`)
-colnames(dens1) <- c("fosfori-palb")
+dens1 <- as.data.frame(beta[[1]])
+colnames(dens1) <- c("effect")
 dens1$level <- "general"
 
-dens2 <- as.data.frame(group_effect$`group_effect[3,3,17]`)
-colnames(dens2) <- c("fosfori-palb")
+dens2 <- as.data.frame(group_effect[[1]])
+colnames(dens2) <- c("effect")
 dens2$level <- "PD_avg"
 
-dens3 <- as.data.frame(personal_effect$`personal_effect[10,3,17]`)
-colnames(dens3) <- c("fosfori-palb")
+dens3 <- as.data.frame(personal_effect[[1]])
+colnames(dens3) <- c("effect")
 dens3$level <- "personal"
 
 dens <- rbind(dens1,dens2,dens3)
 
-m1 <- mean(dens1$`fosfori-palb`) # -3.36
-m2 <- median(dens1$`fosfori-palb`) # -1.96
+m1 <- mean(dens1$effect) 
+m2 <- median(dens$effect) 
 
 getmode <- function(v) {
    uniqv <- unique(v)
    uniqv[which.max(tabulate(match(v, uniqv)))]
 }
 
-m3 <- getmode(dens1$`fosfori-palb`) # 1.84
+m3 <- getmode(dens1$effect) 
 
-ggplot(dens, aes(x=`fosfori-palb`, fill=level)) +
+getmode_continuous <- function(v) {
+  d <- density(v)
+  d$x[which.max(d$y)]
+}
+
+m4 <- getmode_continuous(dens1$effect) # 0.1939
+
+ggplot(dens1, aes(x=effect, fill=level)) +
   geom_density(alpha=.25) +
   geom_vline(xintercept = m1, color = "red") +
   geom_vline(xintercept = m2, color = "green") +
-  geom_vline(xintercept = m3, color = "blue") 
+  geom_vline(xintercept = m3, color = "blue") +
+  geom_vline(xintercept = m4, color = "yellow") 
+
 ```
+```{r scatterplot_for_correlations, eval = FALSE, echo = FALSE}
+
+#m4 pufaepros - palb -2.24843
+
+fig_protepros <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=protepros, color=potilas), size=0.4, show.legend = FALSE)
+
+fig_protgkg <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=protgkg), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=protgkg, color=potilas), size=0.4, show.legend = FALSE) 
+
+fig_pufa <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=pufa, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=pufa, color=potilas), size=0.4, show.legend = FALSE)
+
+fig_pufaepros <- ggplot() +
+  geom_point(data=dialysis, aes(y = palb, x=mufaepros, color=potilas), size=0.4, show.legend = FALSE) +
+  geom_line(data=dialysis, aes(y = palb, x=mufaepros, color=potilas), size=0.4, show.legend = FALSE)
+
+p <- grid.arrange(fig_protepros, fig_protgkg, fig_pufaepros, fig_pufa, nrow = 2, ncol=2, padding=0)
+
+lm(palb ~ protgkg, dialysis) # 1.975
+lm(palb ~ protepros, dialysis) # 0.146
+lm(palb ~ pufa, dialysis) # 0.02345
+lm(palb ~ pufaepros, dialysis) # -0.08943
+
+fig_pufaepros
+
+```
+
