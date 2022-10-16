@@ -1,5 +1,5 @@
 ---
-title: "Personalized potassium and phosphorus intake recommendations can be reasoned for end-stage renal failure patients by simulating with hierarchical Bayesian multivariate model"
+title: "Inferring personal intake recommendations of phosphorus and potassium for end-stage renal failure patients by simulating with hierarchical Bayesian multivariate model"
 subtitle: "Supplementary Materials"
 author:
 - JARI TURKIA \textsuperscript{1,2}
@@ -2126,6 +2126,7 @@ for (person_id in 36:36) {
     personal_recommendation.df <- readRDS(rec_file)
 
     MyPalette <- c("#3399FF", "#FF7F0E", "#00BFC4", "#D62728", "#AAAAAA")
+    MyPalette <- c("#2860F6", "#FF7F0E", "#00BFC4", "#D62728", "#AAAAAA")
     #MyPalette <- c("#FF0000", "#00FF00", "#0000FF", "#FAC218", "#AAAAAA")
     
     accepted_intake.df$limiting_proposal <- sapply(accepted_intake.df$proposal, function(x) ifelse(x %in% concs_minmax.df$proposal,x,1000000))
@@ -2202,7 +2203,7 @@ for (person_id in 36:36) {
         labs(x = "Potassium (mg/d)", y = "Phosphorous (mg/d)") +
         annotate("pointrange",x = avg_k, y = avg_f, ymin = min_f, ymax = max_f, xmin = min_k, xmax = max_k, size = 0.1, colour = "black") +
         scale_colour_gradient2(low = "#FFFFFF",
-                               high = "#111188",
+                               high = "#0096FF",
                                midpoint = 0.75,
                                breaks = seq(0.5, 1, by = 0.05),
                                limits = c(0.5, 1),
@@ -2365,6 +2366,12 @@ lm(palb ~ pufa, dialysis) # 0.02345
 lm(palb ~ pufaepros, dialysis) # -0.08943
 
 fig_pufaepros
+
+person_id <- 36
+subject_code <- levels(dialysis$potilas)[person_id]
+  
+dialysis
+mean(dialysis[dialysis$potilas == subject_code,]$fosfori)
 
 ```
 
