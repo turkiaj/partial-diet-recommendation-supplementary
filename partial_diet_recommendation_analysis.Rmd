@@ -47,9 +47,10 @@ source("mebn/v2/MEBNv2.r")
 RenderArticleFigures <- FALSE
 ```
 
-This notebook reproduces in detail the analysis of personal diet recommendations described in the main article. The notebook starts visualizing the collected raw data, prepares it for analysis and estimates personal reaction models with these data. The personal reaction models are combined with the estimation of the current personal diets for constructing personal graphical models. These personal models generate the levels of blood concentrations when a diet is given, they are used in simulating recommended personal diets for reaching predefined normal concentrations. Finally, these personal diet recommendations are compared for showing the divergence among the studied patients.
+This notebook reproduces in detail the analysis of personal diet recommendations described in the main
+article. The notebook starts visualizing the collected raw data, prepares it for analysis, and estimates personal reaction models with these data. The personal reaction models are combined with the estimation of the current personal diets for constructing personal graphical models. These personal models generate the levels of blood concentrations when a diet is given, they are used in simulating recommended personal diets for reaching predefined normal concentrations. Finally, these personal diet recommendations are compared for showing the divergence among the studied patients.
 
-The notebook execution generates all the figures and tables that are included in the article, and produces also the referenced supplementary figures. The article is accompanied with a PDF rendetion of the notebook that shows all the supplementary figures and important parts of the program code so that the analysis can be followed in detail. The executable RMarkdown notebook with data can be found in a public Github repository of the corresponding author.
+The notebook execution generates all the figures and tables that are included in the article and produces also the referenced supplementary figures. The article is accompanied by a PDF rendition of the notebook that shows all the supplementary figures and important parts of the program code so that the analysis can be followed in detail. The executable RMarkdown notebook with data can be found in a public GitHub repository of the corresponding author.
 
 # Dialysis patient data
 
@@ -170,10 +171,11 @@ colnames(pred_table_fat_epros) <- c("Nutrient", "Sample avg. (min-max)")
 
 ```
 
-The analyzed dataset consists of food records and laboratory measurements from end-stage renal patients in dialysis. Following nutrients are possible considered as predictors of concentrations. Note that we use energy-% of fats and protein as unit in our analysis. This is referred as Table 1 in the main article.
-
 ```{r table1, echo=FALSE, message=FALSE, warning=FALSE}
 library(kableExtra)
+
+# The analyzed dataset consists of food records and laboratory measurements from end-stage renal patients in dialysis. The following nutrients are considered possible predictors of 
+# concentrations. Note that we use energy-% of fats and protein as a unit in our analysis. This is referred to as Table 1 in the main article.
 
 # Latex notation from tables/nutrient_table.tex is used in the article
 
@@ -191,10 +193,10 @@ table1 <- kable(pred_table_fat_epros, booktabs = T, row.names = NA, format = "la
 
 table1 %>% save_kable(file = "tables/nutrient_table.pdf", keep_tex = TRUE)
 ```
-and also following personal details and medication are considered as predictors. This is referenced as Table 2 in the article.
-
 ```{r table2, echo=FALSE, message=FALSE}
 library(kableExtra)
+
+# The following personal details and medication are considered as predictors. This is referenced as Table 2 in the article.
 
 medication_preds <- as.vector(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Bernoulli",]$Name)
 medication_table <- as.data.frame(assumedpredictors_fat_epros[assumedpredictors_fat_epros$Distribution == "Bernoulli",]$Description, row.names = NULL)
@@ -231,9 +233,9 @@ table2 <- kable(medication_table, booktabs = T, row.names = NA, format = "latex"
 
 table2 %>% save_kable(file = "tables/personinfo_table.pdf", keep_tex = TRUE)
 ```
-Let us explore then how the intake of dietary potassium and phosphorus corresponds in data to plasma concentrations of potassium, phosphate and albumin
+Let us explore then how the intake of dietary potassium and phosphorus correspond in data to plasma concentrations of potassium, phosphate and albumin.
 
-```{r scatterplot, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.width=6, fig.cap="Figure shows the progress between two observations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) concentrations of the studied patients. White regions in the panels show the recommended concentration levels, P-K 3.4 - 4.7 mmol/l, fP-Pi < 1.8 mmol/l and P-Alb 34 - 48 g/l. Vertical black lines denote the commonly recommended maximum intakes of these nutrients. The goal is to find personal intake levels that keep the concentrations in recommended levels, if possible. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)."}
+```{r scatterplot, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.align="left", fig.width=6, fig.cap="Figure shows the progress between two observations of plasma potassium (P-K), fasting plasma phosphate (fP-Pi) and plasma albumin (P-Alb) concentrations of the studied patients. White regions in the panels show the recommended concentration levels, P-K 3.4 - 4.7 mmol/l, fP-Pi < 1.8 mmol/l and P-Alb 34 - 48 g/l. Vertical black lines denote the commonly recommended maximum intakes of these nutrients. The goal is to find personal intake levels that keep the concentrations within recommended normal ranges, if possible. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)."}
 library(ggplot2)
 library(gridExtra)
 library(grid)
@@ -315,13 +317,13 @@ p <- grid.arrange(pk_k_plot, pk_p_plot, fppi_k_plot, fppi_p_plot, palb_k, palb_p
 #ggsave("figures/data_scatterplot.pdf", plot = p, width = 6, height = 7, scale = 1)
 ```
 
-Aim of this analysis is to find such personal levels of potassium and phosphorous intakes that keep all these concentrations in their normal levels marked with white regions, if possible. 
+Aim of this analysis is to find such personal levels of potassium and phosphorous intakes that keep all these concentrations in their recommended levels marked with white regions, if possible. 
 
 # Development of nutrition reaction model
 
 In this work we construct personal generative models for concentrations that allow conditioning personal diet recommendations. Essential part of these models is the personal reactions to nutrients and other predictors. Simultaneous reactions on all considered concentrations are modeled as multivariate model that has all the concentrations are response variables.
 
-For comparison, we estimate multivariate systems with and without cross-model covariance. With cross-model covariance estimated, the model corresponds to seemingly unrelated model system, and without the model is Bayesian network with separated local distributions. This simpler model is estimated first with only potassium and phosphorous concentrations as responses.
+For comparison, we estimate multivariate systems with and without cross-model covariance. With cross-model covariance estimated, the model corresponds to seemingly unrelated model system, and without the model is Bayesian network with separated local distributions. This more simple model is estimated first with only potassium and phosphorous concentrations as responses.
 
 ```{r model_separate_univariate_preparation, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 library(rstan)
@@ -376,7 +378,7 @@ write.graph(dialdiet_gamma_mv2_epros,
 ```
 Next we like to add plasma albumin concentration as a third constraint in the model, but unfortunately 8 of 37 patients have missing albumin measurements. From such a small dataset we don't want to remove any patients and so we predict the missing albumin levels and impute them to dataset. 
 
-For prediction, estimate the model without missing values in P-Alb. The rows with missing values are held out from the density estimation, but patients are kept in the model for estimating their parameters.
+For prediction, we estimate the model without missing concentrations in P-Alb. The rows with missing values are held out from the density estimation, but patients are kept in the model for estimating their parameters.
 
 ```{r graph_with_gamma_qr_mv3_epros, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 pk_fppi_palb_targets <- 
@@ -534,7 +536,7 @@ saveRDS(dialysis2, "data/DIALYSIS_imputed_palb.rds")
 write.csv2(dialysis2, file="data/DIALYSIS_imputed_palb.csv", row.names = FALSE, sep = ";")
 ```
 
-With this data imputation we can estimate a cross-covariance model with three responses
+With these data imputations we can estimate a cross-covariance model with three responses
 
 ```{r graph_with_gamma_qr_mv3_full_prep, echo=TRUE}
 pk_fppi_palb_targets <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
@@ -610,16 +612,19 @@ source("mebn/v2/MEBNv2.r")
 
 # - latent parameters from this model
 latent_parameter_modeldir <- "models/BLMM_gamma_mv_cross/two_levels"
-latent_parameter_modeldir <- "models/BLMM_gamma_qr_multivariate3/imputed_palb/"
+#latent_parameter_modeldir <- "models/BLMM_gamma_qr_multivariate3/imputed_palb/"
+#latent_parameter_modeldir <- "models/BLMM_gamma_separate/"
 
 # - use these predictors and targets
 datadesc <- datadesc_fat_epros
 target_variables <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi','palb'),]
+#target_variables <- datadesc_fat_epros[datadesc_fat_epros$Name %in% c('pk','fppi'),]
 assumedpredictors <- assumedpredictors_fat_epros
 
 # - output personal generative models (graphml + rv samples) in this dir
 graph_dir <- "graphs/mv3_cross_two_levels/"
-graph_dir <- "graphs/mv3_cross/"
+#graph_dir <- "graphs/mv3_cross/"
+#graph_dir <- "graphs/separate_pk_fppi/"
 
 # Loop through patients and produce the models
 
@@ -633,7 +638,7 @@ patients <- levels(dialysis$potilas)
 #for (person_id in 1:length(patients)) {
 
 for (person_id in 1:37) {
-
+  
   # - initial graph structure
   initial_graph <- mebn.fully_connected_bipartite_graph(datadesc)
   
@@ -663,12 +668,15 @@ for (person_id in 1:37) {
   # Generate a personal graph in directory
   
   group_id <- as.numeric(unique(dialysis[dialysis$potilas == subject_code,]$hoitoryhma))
-  
+
+  # one-level, univariate models
+  #personal_graph <- mebn.extract_personal_graph(person_id, initial_graph, personal_model_dir, assumedpredictors, target_variables, latent_parameter_modeldir, personal_data, personal_data_org)
+
   # one-level model
-  personal_graph <- mebn.extract_personal_graph_from_mv(person_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
+  #personal_graph <- mebn.extract_personal_graph_from_mv(person_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
 
   # two-level model
-  #personal_graph <- mebn.extract_multilevel_graph(person_id, group_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
+  personal_graph <- mebn.extract_multilevel_graph(person_id, group_id, initial_graph, personal_model_dir, assumedpredictors, assumedtargets, latent_parameter_modeldir, personal_data, personal_data_org, personal_concentrations_org, datadesc)
   
 }
 
@@ -691,7 +699,8 @@ palb_mean <- mean(dialysis$palb, na.rm = TRUE)
 
 mse_summary <- data.frame(matrix(ncol = 5, nrow = 0), row.names = NULL)
 
-model_dir_candidates <- c("mv3_cross_two_levels", "mv3_cross")
+#model_dir_candidates <- c("mv3_cross_two_levels", "mv3_cross")
+model_dir_candidates <- c("separate_pk_fppi")
 
 for (model_dir in model_dir_candidates) {
 
@@ -708,10 +717,17 @@ for (model_dir in model_dir_candidates) {
     personal_info <- head(dialysis[dialysis$potilas == subject_code,],1)
     recommeded_concentrations <- mebn.get_personal_target_guidelines(personal_info, patient_in_dialysis = TRUE)
     
+    # Omit P-Alb
+    recommeded_concentrations$lower_limits <- recommeded_concentrations$lower_limits[1:2]
+    recommeded_concentrations$upper_limits <- recommeded_concentrations$upper_limits[1:2]
+    
     personal_model_dir <- paste0(graph_dir,person_id)
     personal_graph <- read.graph(paste0(personal_model_dir, "/personal_graph.graphml"), "graphml")
     
     # Sample diet proposals and matching concentration predictions
+    
+    # Omit P-Alb
+    V(personal_graph)["palb"]$type <- 300
     
     repeat_model <- mebn.Query(reaction_graph = personal_graph,
                            graph_dir = personal_model_dir,
@@ -735,7 +751,7 @@ for (model_dir in model_dir_candidates) {
    
     pk <- repeats$concentration[,,1]
     fppi <- repeats$concentration[,,2]
-    palb <- repeats$concentration[,,3]
+    #palb <- repeats$concentration[,,3]
      
     true_concs <- dialysis %>%
          filter(potilas == subject_code) %>%
@@ -746,22 +762,34 @@ for (model_dir in model_dir_candidates) {
                               mebn.NRMSE(mean(pk), mean(true_concs$pk), pk_mean),
                               mebn.NRMSE(mean(fppi), mean(true_concs$fppi), fppi_mean),
                               mebn.NRMSE(mean(palb), mean(true_concs$palb), palb_mean))
-  
+
+    # personal_mse <- cbind(subject_code,
+    #                           model_dir,
+    #                           mebn.NRMSE(mean(pk), mean(true_concs$pk), pk_mean),
+    #                           mebn.NRMSE(mean(fppi), mean(true_concs$fppi), fppi_mean))
+
     mse_summary <- rbind(mse_summary, personal_mse)
   }
 }
 
 colnames(mse_summary) <- c("subject", "reaction_model", "pk_nrmse", "fppi_nrmse", "palb_nrmse")
+#colnames(mse_summary) <- c("subject", "reaction_model", "pk_nrmse", "fppi_nrmse")
 
 saveRDS(mse_summary, "model_evaluation/NRMSE_comparison_mv_models.rds")
+#saveRDS(mse_summary, "model_evaluation/NRMSE_comparison_uni_model.rds")
 
 write.csv2(mse_summary, file="model_evaluation/NRMSE_comparison_mv_models.csv", row.names = FALSE)
+#write.csv2(mse_summary, file="model_evaluation/NRMSE_comparison_uni_model.csv", row.names = FALSE)
 
 ```
 
 ```{r MSE_table, cache=TRUE, echo=FALSE}
 
+uni_mse_summary <- readRDS("model_evaluation/NRMSE_comparison_uni_model.rds")
 mse_summary <- readRDS("model_evaluation/NRMSE_comparison_mv_models.rds")
+
+uni_pk_mse <- mean(as.numeric(uni_mse_summary$pk_nrmse), na.rm=TRUE)
+uni_fppi_mse <- mean(as.numeric(uni_mse_summary$fppi_nrmse), na.rm=TRUE)
 
 mv3c2_pk_mse <- mean(as.numeric(mse_summary[mse_summary$reaction_model == "mv3_cross_two_levels",]$pk_nrmse)) # 0.004475995
 mv3c2_fppi_mse <- mean(as.numeric(mse_summary[mse_summary$reaction_model == "mv3_cross_two_levels",]$fppi_nrmse)) # 0.006727212
@@ -771,22 +799,22 @@ mv3c1_pk_mse <- mean(as.numeric(mse_summary[mse_summary$reaction_model == "mv3_c
 mv3c1_fppi_mse <- mean(as.numeric(mse_summary[mse_summary$reaction_model == "mv3_cross",]$fppi_nrmse), na.rm=TRUE) # 0.1298725
 mv3c1_palb_mse <- mean(as.numeric(mse_summary[mse_summary$reaction_model == "mv3_cross",]$palb_nrmse), na.rm=TRUE) # 0.05903203
 
+unic1 <- cbind("separate_pk_fppi", uni_pk_mse, uni_fppi_mse, 0, mean(uni_pk_mse, uni_fppi_mse))
 mv3c1 <- cbind("mv3_cross_single_level", mv3c1_pk_mse, mv3c1_fppi_mse, mv3c1_palb_mse, mean(mv3c1_pk_mse, mv3c1_fppi_mse, mv3c1_palb_mse))
 mv3c2 <- cbind("mv3_cross_two_levels", mv3c2_pk_mse, mv3c2_fppi_mse, mv3c2_palb_mse, mean(mv3c2_pk_mse, mv3c2_fppi_mse, mv3c2_palb_mse))
 
-mse_table <- rbind(mv3c2, mv3c1)
+mse_table <- rbind(mv3c2, mv3c1, unic1)
 mse_table[,2:5] <- round(as.numeric(mse_table[,2:5]),3)
 
 kable(mse_table, "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3,align="lrrrr",
-  caption = "Supplementary Table S1: Comparison of model candidates. Personal graphical models with different reaction model candidates are evaluated with NRMSE for each modeled concentration and average model error.",
+  caption = "Comparison of model candidates. Personal graphical models with different reaction model candidates are evaluated with NRMSE for each modeled concentration and average model error.",
   col.names = c("Reaction model", "P-K", "fP-Pi", "P-Alb", "average error")) %>%
   add_header_above(c(" " = 1, "NRMSE" = 4), escape = F) %>%
   kable_styling(latex_options = "HOLD_position") %>%
-  kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) %>%
-  row_spec(0,bold=TRUE)
+  kable_styling(latex_options = c("basic", "condensed"), full_width = FALSE) 
 
-#%>% save_kable(file = "tables/model_nrmse_comparison.pdf", keep_tex = TRUE)
-
+#%>%
+#  row_spec(0,bold=TRUE) %>% save_kable(file = "tables/model_nrmse_comparison.pdf", keep_tex = TRUE)
 
 ```
 
@@ -809,7 +837,7 @@ dialysis_mv3cross_treatment <- read_graph("graphs/dialysis_gamma_two_level_group
 graph_layout <- mebn.plot_typical_effects(dialysis_mv3cross_treatment, 20, graph_layout = NULL)
 ```
 
-Then we drill into the estimated correlation matrices of effects. The model estimates how much the effects of nutrients vary from general effects in dialysis treatment level and further how the effects vary personally within a treatment. These correlation plots show how the effects are correlated. 
+Then we look into the estimated correlation matrices of effects. The model estimates how much the effects of nutrients vary between different types of dialysis treatment and further how the effects vary personally within a treatment. These correlation plots show how the effects are correlated. 
 
 ```{r, subject_effect_correlations, eval=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
 library(rstan)
@@ -1429,7 +1457,7 @@ top_effect_summary <- top_effect_summary %>% inner_join(effect_desc.df, by = "ef
 ```
 
 \newpage
-Supplementary Table S5: Table shows 20 effects that have highest variation between patients by comparing minimum and maximum of effect strength expected values.
+Supplementary Table S5: Table shows 20 effects that have highest variation between patients by comparing minimum and maximum of expected effect strength.
 ```{r top_effect_summary_table,echo=FALSE, cache=FALSE}
 kable(top_effect_summary[1:20, c(5,2,3)], "latex", escape = T, booktabs = T, row.names = FALSE, digits = 3, col.names = c("Effect", "Min", "Max")) %>%
     kable_styling(latex_options = "HOLD_position") %>%
@@ -1860,7 +1888,7 @@ colnames(personal_targets) <- c("person_id", "pk_lower_limit", "fppi_lower_limit
 ```
 
 # Overview of personal recommendations 
-```{r reasoning_plot_ridges, fig.height=8.5, fig.width=8, cache=FALSE,echo=FALSE, message=FALSE, warning=FALSE,fig.cap="The figure shows in two left-most panels personal recommendations of potassium and phosphorous intake ($\\hat{Q}^{min}-\\hat{Q}^{max}$) from Algorithm (1) with predictive distributions of $\\hat{Q}$ in the background. Each row gives a numeric label of the patient and the type of patient's dialysis treatment (HD = hospital hemodialysis, HHD = home hemodialysis, PD = peritoneal dialysis). Personal recommendations are given for those patients whose resulting plasma concentration levels could be predicted in either over 90\\% or 80\\% probability. Three right-most panels show the estimated concentrations that match the recommended intake. In these panels, grey bars indicate the estimated concentration without the effect of potassium and phosphorous intake, $\\mu_{q0}$. Blue bars indicate the range of concentration that is resulted by modifying potassium and phosphorous intake. It is required that these simulated concentrations stay within the personal target ranges denoted with vertical black lines. The best exact probabilities $P^{max}_m$ are shown with percentage figures. Red bars indicate that even the best concentration estimation has $P^{max} < 80\\%$ confidence and personal recommendations are not given for these patients. For these patients, the red and blue bars show the whole reachable ranges. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)"}
+```{r reasoning_plot_ridges, fig.height=8.5, fig.width=8, cache=FALSE,echo=FALSE, message=FALSE, warning=FALSE,fig.cap="The figure shows in two left-most panels personal recommendations of potassium and phosphorous intake ($\\hat{Q}^{min}-\\hat{Q}^{max}$) with predictive distributions of $\\hat{Q}$ illustrated in the background. Each row shows a numeric label of the patient and the type of patient's dialysis treatment (HD = hospital hemodialysis, HHD = home hemodialysis, PD = peritoneal dialysis). Personal recommendations are given for those patients whose resulting plasma concentration levels could be predicted in either over 90\\% probability. Three right-most panels show the estimated concentrations that match the recommended intake. In these panels, grey bars indicate the estimated concentration without the effect of potassium and phosphorous intake, $\\mu_{q0}$. Blue bars indicate the range of concentration that is resulted from modifying phosphorous and potassium intake. It is required that these simulated concentrations stay within the personal target ranges denoted with vertical black lines. The dark blue bar indicates satisfying this requirement in $P^{max} > 90\\%$ confidence and $P^{max} > 80\\%$ confidence would be indicated with light blue, but there aren't any in the results. The best exact probabilities $P^{max}_m$ are shown with percentage figures. Red bars indicate that even the best concentration estimation has $P^{max} < 80\\%$ confidence and personal recommendations are not given for these patients. For these patients, the red and blue bars show the whole reachable ranges. The figure is plotted with ggplot2 package for R language (v 3.3.5, https://ggplot2.tidyverse.org)."}
 
 library(ggridges)
 library(ggplot2)
@@ -2175,27 +2203,27 @@ for (person_id in 36:36) {
 
       intake_plot <- ggplot(subset(accepted_intake.df, lowest_conc_prob >= 0.50), aes(x = pot, y = pho)) +
         geom_point(aes(colour=lowest_conc_prob), show.legend = TRUE) +
-        geom_rect(fill = "#FFFFFF00", color = "white", size = 0.4,
+        geom_rect(fill = "#FFFFFF00", color = "white", size = 0.6,
                     aes(xmin = as.numeric(personal_recommendation.df$min_pot),
                     ymin = as.numeric(personal_recommendation.df$min_pho),
                     xmax = as.numeric(personal_recommendation.df$max_pot),
                     ymax = as.numeric(personal_recommendation.df$max_pho))) +
-        geom_rect(fill = MyPalette[1], color = MyPalette[1], size = 0.4,
+        geom_rect(fill = MyPalette[1], color = MyPalette[1], size = 0.6,
                     aes(xmin = as.numeric(personal_recommendation.df$min_pot),
                     ymin = as.numeric(personal_recommendation.df$min_pho),
                     xmax = as.numeric(personal_recommendation.df$max_pot),
                     ymax = as.numeric(personal_recommendation.df$min_pho))) +
-        geom_rect(fill = MyPalette[2], color = MyPalette[2], size = 0.4,
+        geom_rect(fill = MyPalette[2], color = MyPalette[2], size = 0.6,
                     aes(xmin = as.numeric(personal_recommendation.df$min_pot),
                     ymin = as.numeric(personal_recommendation.df$max_pho),
                     xmax = as.numeric(personal_recommendation.df$max_pot),
                     ymax = as.numeric(personal_recommendation.df$max_pho))) +
-        geom_rect(fill = MyPalette[3], color = MyPalette[3], size = 0.4,
+        geom_rect(fill = MyPalette[3], color = MyPalette[3], size = 0.6,
                     aes(xmin = as.numeric(personal_recommendation.df$min_pot),
                     ymin = as.numeric(personal_recommendation.df$min_pho),
                     xmax = as.numeric(personal_recommendation.df$min_pot),
                     ymax = as.numeric(personal_recommendation.df$max_pho))) +
-        geom_rect(fill = MyPalette[4], color = MyPalette[4], size = 0.4,
+        geom_rect(fill = MyPalette[4], color = MyPalette[4], size = 0.6,
                     aes(xmin = as.numeric(personal_recommendation.df$max_pot),
                     ymin = as.numeric(personal_recommendation.df$min_pho),
                     xmax = as.numeric(personal_recommendation.df$max_pot),
